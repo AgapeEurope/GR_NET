@@ -108,12 +108,10 @@ Namespace GR.NET
             Dim reader As New IO.StreamReader(response.GetResponseStream())
             Dim json = reader.ReadToEnd()
 
-            Console.Write(json)
         End Sub
         Public Sub SyncPerson(ByVal p As Entity)
             Dim postData = "{""entity"": {""person"":" & p.ToJson & "}}"
-            Console.Write(postData & vbNewLine)
-            Console.ReadKey()
+          
             Dim rest = _grUrl & "entities?access_token=" & _apikey.ToString
             Dim request As HttpWebRequest = DirectCast(WebRequest.Create(rest), HttpWebRequest)
             ' request.CookieContainer = myCookieContainer
@@ -132,8 +130,6 @@ Namespace GR.NET
             Dim reader As New IO.StreamReader(response.GetResponseStream())
             Dim json = reader.ReadToEnd()
 
-            Console.Write(json)
-            Console.ReadKey()
         End Sub
 
         Public Sub SyncPeople()
