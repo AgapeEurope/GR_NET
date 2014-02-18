@@ -7,21 +7,19 @@
 
       
 
-        Private people_list As New List(Of Entity)
+        Public people_list As New List(Of Entity)
 
 
 
-        Public Function createPerson(ByVal LocalId As String, ByVal TheKeyGuid As String, ByVal FirstName As String, ByVal LastName As String) As Entity
+        Public Function createPerson(ByVal LocalUserId As String) As Entity
             Dim person As New Entity()
-            person.AddPropertyValue("client_integration_id", LocalId)
-            ' person.AddProperty("keyguid", TheKeyGuid)
-            person.AddPropertyValue("first_name", FirstName)
-            person.AddPropertyValue("last_name", LastName)
+            person.AddPropertyValue("client_integration_id", LocalUserId)
+
             people_list.Add(person)
             Return person
         End Function
 
-
+       
 
 
 

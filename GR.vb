@@ -16,6 +16,8 @@ Namespace GR.NET
         Private _grUrl = ""
         Private _rootEntityTypes As New List(Of EntityType)
 
+        Public People As New People()
+
         Public Sub New(Optional ByVal apiKey As String = Nothing, Optional gr_url As String = "https://gr.stage.uscm.org/")
             If Not apiKey = Nothing Then
                 _apikey = apiKey
@@ -25,16 +27,7 @@ Namespace GR.NET
 
         End Sub
 
-        Private rootEntities As String
-        Public Property NewProperty() As String
-            Get
-                Return rootEntities
-            End Get
-            Set(ByVal value As String)
-                rootEntities = value
-            End Set
-        End Property
-
+       
         Public Sub GetRootEntities()
             'Make REST CAll
             ServicePointManager.ServerCertificateValidationCallback = AddressOf TrustAllCertificateCallback
@@ -119,7 +112,8 @@ Namespace GR.NET
         End Sub
         Public Sub SyncPerson(ByVal p As Entity)
             Dim postData = "{""entity"": {""person"":" & p.ToJson & "}}"
-
+            Console.Write(postData & vbNewLine)
+            Console.ReadKey()
             Dim rest = _grUrl & "entities?access_token=" & _apikey.ToString
             Dim request As HttpWebRequest = DirectCast(WebRequest.Create(rest), HttpWebRequest)
             ' request.CookieContainer = myCookieContainer
@@ -139,6 +133,14 @@ Namespace GR.NET
             Dim json = reader.ReadToEnd()
 
             Console.Write(json)
+            Console.ReadKey()
+        End Sub
+
+        Public Sub SyncPeople()
+            For Each person In People.people_list
+                SyncPerson(person)
+            Next
+
         End Sub
 
 

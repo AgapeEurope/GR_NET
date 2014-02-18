@@ -7,24 +7,28 @@
 
     Public Sub AddPropertyValue(ByVal Key As String, ByVal Value As String)
         'Key uses DotNotation. (eg. "Address.Line1")
-        Dim keys As String() = Key.Split(".")
-        If keys.Count = 1 Then
-            If Not profileProperties.ContainsKey(Key) Then
-                profileProperties.Add(Key, Value)
+        If (Not String.IsNullOrEmpty(Value)) Then
+
+
+            Dim keys As String() = Key.Split(".")
+            If keys.Count = 1 Then
+                If Not profileProperties.ContainsKey(Key) Then
+                    profileProperties.Add(Key, Value)
+                Else
+                    profileProperties(Key) = Value
+                End If
+
             Else
-                profileProperties(Key) = Value
+                Key = Key.Replace(keys(0) & ".", "")
+                If Not collections.ContainsKey(keys(0)) Then
+                    Dim ent As New Entity()
+                    collections.Add(keys(0), ent)
+
+                End If
+
+
+                collections(keys(0)).AddPropertyValue(Key, Value)
             End If
-
-        Else
-            Key = Key.Replace(keys(0) & ".", "")
-            If Not collections.ContainsKey(keys(0)) Then
-                Dim ent As New Entity()
-                collections.Add(keys(0), ent)
-
-            End If
-
-
-            collections(keys(0)).AddPropertyValue(Key, Value)
         End If
     End Sub
 
