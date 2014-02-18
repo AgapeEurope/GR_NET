@@ -67,6 +67,7 @@
     <Import Include="System.Threading.Tasks" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="FieldType.vb" />
     <Compile Include="Entity.vb" />
     <Compile Include="EntityType.vb" />
     <Compile Include="GR.vb" />

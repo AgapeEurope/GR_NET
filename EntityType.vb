@@ -19,6 +19,16 @@
         End Set
     End Property
 
+    Private _field_type As String
+    Public Property Field_Type() As String
+        Get
+            Return _field_type
+        End Get
+        Set(ByVal value As String)
+            _field_type = value
+        End Set
+    End Property
+
 
     Private _children As New List(Of EntityType)
     Public Property Children() As List(Of EntityType)
@@ -80,13 +90,21 @@
     End Sub
 
 
-    Public Sub GetDecendents(ByRef FlatList As List(Of EntityType))
+    Public Sub GetDecendents(ByRef FlatList As List(Of EntityType), ByVal type As String)
         If IsCollection() Then
+            If type = FieldType._entity Or type = "All" Then
+                FlatList.Add(Me)
+            End If
             For Each child In Children
-                child.GetDecendents(FlatList)
+                child.GetDecendents(FlatList, type)
             Next
         Else
-            FlatList.Add(Me)
+            If type Is Nothing Then
+                FlatList.Add(Me)
+            ElseIf type = _field_type Or type = "All" Then
+                FlatList.Add(Me)
+            End If
+
         End If
 
     End Sub
