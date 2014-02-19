@@ -1,4 +1,7 @@
-﻿
+﻿''' <summary>
+''' Basic class to define the possible values for Field Type in the GR system. 
+''' </summary>
+''' <remarks>Several of the methods in GR.NET ask for a Type (or field Type) of type string. Rather than enter "integer" is would be better to enter FieldType._integer. This insures that you don't enter an invalid FieldType</remarks>
 Public Class FieldType
 
     Public Shared _entity As String = "entity"
@@ -10,7 +13,14 @@ Public Class FieldType
     Public Shared _text As String = "text"
     Public Shared _datetime As String = "datatime"
     Public Shared _float As String = "float"
-    Public Shared type_list = {"entity", "string", "integer", "boolean", "date", "enum", "text", "datetime", "float"}
+    Public Shared type_list = {"entity", "string", "integer", "boolean", "date", "enum", "text", "datetime", "float"} ' the list of valid FieldTypes
+
+    ''' <summary>
+    ''' Checks if a FieldType is valid
+    ''' </summary>
+    ''' <param name="name"></param>
+    ''' <returns></returns>
+    ''' <remarks></remarks>
     Public Shared Function isValid(ByVal name As String) As Boolean
 
         Return type_list.Contains(name)
