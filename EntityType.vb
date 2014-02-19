@@ -1,4 +1,14 @@
-﻿Public Class EntityType
+﻿''' <summary>
+''' Local object model to represent GR entity types. 
+''' </summary>
+''' <remarks>
+''' EntityTypes refect the structure of profile properties and collections in the Global Registry. (eg 'person' is an enitity_type. It has a child entity_types of 'first_name', 'last_name' etc)
+''' Entity types can be nested (ie they have parents/children). These objects are created by the GR constructor. The main method you are likely to call on this object is GetDotNotation. 
+''' GR.GetFlatEntityTypeList returs a list of entity types. Calling GetDotNotation on each of these entity types allows you create a list of valid inputs to the Entity.AddPropertyValue method. </remarks>
+Public Class EntityType
+#Region "Properties"
+
+
     Private _name As String
     Public Property Name() As String
         Get
@@ -56,29 +66,18 @@
 
     End Function
 
-    Public Function IsRoot() As Boolean
-        Return _parent Is Nothing
-    End Function
+#End Region
 
-    Public Function GetDotNotation() As String
-        Dim rtn As String = _name
-
-        If IsRoot() Then
-            Return rtn
-        Else
-            rtn = _parent.GetDotNotation & "." & rtn
-        End If
+#Region "Constructor"
 
 
-
-        Return rtn
-
-    End Function
-
-
-
-
-
+    ''' <summary>
+    ''' Creates a new EntityType
+    ''' </summary>
+    ''' <param name="Type_Name"></param>
+    ''' <param name="Type_Id"></param>
+    ''' <param name="Type_Parent"></param>
+    ''' <remarks></remarks>
     Public Sub New(ByVal Type_Name As String, ByVal Type_Id As Integer, Optional Type_Parent As EntityType = Nothing)
         _name = Type_Name
         _id = Type_Id
@@ -88,8 +87,19 @@
         End If
         '  Console.Write(GetDotNotation() & vbNewLine)
     End Sub
+#End Region
 
 
+#Region "Public Methods"
+
+
+
+    ''' <summary>
+    ''' Recursive function to gather a flat list of all enitities
+    ''' </summary>
+    ''' <param name="FlatList">The list to which all entity_types will be added and returned</param>
+    ''' <param name="type">Enter Nothing/Null for leaves only. "All" for everything. Or filter by FieldType (see field type class)</param>
+    ''' <remarks></remarks>
     Public Sub GetDecendents(ByRef FlatList As List(Of EntityType), ByVal type As String)
         If IsCollection() Then
             If type = FieldType._entity Or type = "All" Then
@@ -109,14 +119,34 @@
 
     End Sub
 
-    Public Sub Print()
-        If (Not IsRoot()) Then
-            Console.Write(GetDotNotation() & vbNewLine)
+    ''' <summary>
+    ''' Checks if this is a root entity
+    ''' </summary>
+    ''' <returns>True/False</returns>
+    ''' <remarks>Returns true if this EntityType is a RootEntity type (ie has no parent)</remarks>
+    Public Function IsRoot() As Boolean
+        Return _parent Is Nothing
+    End Function
+
+    ''' <summary>
+    ''' Returns the name of this entity type in Dot Notation
+    ''' </summary>
+    ''' <returns></returns>
+    ''' <remarks>eg person.address.city</remarks>
+    Public Function GetDotNotation() As String
+        Dim rtn As String = _name
+
+        If IsRoot() Then
+            Return rtn
+        Else
+            rtn = _parent.GetDotNotation & "." & rtn
         End If
 
-        For Each child In _children
-            child.Print()
-        Next
-    End Sub
 
+
+        Return rtn
+
+    End Function
+
+#End Region
 End Class
