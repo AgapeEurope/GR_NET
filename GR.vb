@@ -56,7 +56,7 @@ Public Class GR
             _apikey = apiKey
         End If
         _grUrl = gr_url
-      
+
         GetEntityTypeDefFromGR()
 
     End Sub
@@ -77,14 +77,9 @@ Public Class GR
 
     End Sub
 
-    ''' <summary>
-    ''' Update an enitity (or entity tree) on the on GR server
-    ''' </summary>
-    ''' <param name="p">The entity to update (or entity tree).</param>
-    ''' <remarks>Only one root entity permitted. You must have a supplied a client_integration_id</remarks>
-    Public Sub SyncPerson(ByVal p As Entity)
-        Dim postData = "{""entity"": {""person"":" & p.ToJson & "}}"
-
+    Public Sub CreateEntity(ByRef p As Entity, ByVal EntityName As String)
+        Dim postData = "{""entity"": {""" & EntityName & """:" & p.ToJson & "}}"
+        Console.Write(postData & vbNewLine)
         Dim rest = _grUrl & "entities?access_token=" & _apikey.ToString
         Dim request As HttpWebRequest = DirectCast(WebRequest.Create(rest), HttpWebRequest)
 
@@ -102,7 +97,85 @@ Public Class GR
 
         Dim reader As New IO.StreamReader(response.GetResponseStream())
         Dim json = reader.ReadToEnd()
-        Console.Write(json & vbNewLine)
+        Console.Write(json & vbNewLine & vbNewLine)
+
+        'ID's need to be written back to Entity structure
+
+    End Sub
+
+    Public Sub UpdateEntity(ByRef p As Entity, ByVal EntityName As String)
+        Dim postData = "{""entity"": {""" & EntityName & """:" & p.ToJson & "}}"
+        Console.Write(postData & vbNewLine)
+        Dim rest = _grUrl & "entities/" & p.ID & "/?access_token=" & _apikey.ToString
+        Dim request As HttpWebRequest = DirectCast(WebRequest.Create(rest), HttpWebRequest)
+
+        request.Method = "PUT"
+
+        Dim bytes As Byte() = Text.Encoding.UTF8.GetBytes(postData)
+        request.ContentLength = bytes.Length
+        request.ContentType = "application/json"
+        Dim requestStream = request.GetRequestStream()
+        requestStream.Write(bytes, 0, bytes.Length)
+
+
+
+        Dim response As HttpWebResponse = DirectCast(request.GetResponse(), HttpWebResponse)
+
+        Dim reader As New IO.StreamReader(response.GetResponseStream())
+        Dim json = reader.ReadToEnd()
+        Console.Write(json & vbNewLine & vbNewLine)
+
+        'ID's need to be writted back to entity structure
+    End Sub
+
+    Public Sub DeleteEntity(ByVal ID As Integer)
+        Dim rest = _grUrl & "entities/" & ID & "/?access_token=" & _apikey.ToString
+        Dim request As HttpWebRequest = DirectCast(WebRequest.Create(rest), HttpWebRequest)
+
+        request.Method = "DELETE"
+        Dim response As HttpWebResponse = DirectCast(request.GetResponse(), HttpWebResponse)
+
+        Dim reader As New IO.StreamReader(response.GetResponseStream())
+        Dim json = reader.ReadToEnd()
+        Console.Write(json & vbNewLine & vbNewLine)
+    End Sub
+
+    Public Function GetEntity(ByVal ID As Integer) As Entity
+        Dim web As New WebClient()
+        Dim json = Web.DownloadString(_grUrl & "entities/" & ID & "/?access_token=" & _apikey.ToString)
+
+        'TODO: Need a construction on Entity to create from JSON
+        Return New Entity()
+
+    End Function
+
+
+    ''' <summary>
+    ''' Update an enitity (or entity tree) on the on GR server
+    ''' </summary>
+    ''' <param name="p">The entity to update (or entity tree).</param>
+    ''' <remarks>Only one root entity permitted. You must have a supplied a client_integration_id</remarks>
+    Public Sub SyncPerson(ByVal p As Entity)
+        Dim postData = "{""entity"": {""person"":" & p.ToJson & "}}"
+        Console.Write(postData & vbNewLine)
+        Dim rest = _grUrl & "entities?access_token=" & _apikey.ToString
+        Dim request As HttpWebRequest = DirectCast(WebRequest.Create(rest), HttpWebRequest)
+
+        request.Method = "POST"
+
+        Dim bytes As Byte() = Text.Encoding.UTF8.GetBytes(postData)
+        request.ContentLength = bytes.Length
+        request.ContentType = "application/json"
+        Dim requestStream = request.GetRequestStream()
+        requestStream.Write(bytes, 0, bytes.Length)
+
+
+
+        Dim response As HttpWebResponse = DirectCast(request.GetResponse(), HttpWebResponse)
+
+        Dim reader As New IO.StreamReader(response.GetResponseStream())
+        Dim json = reader.ReadToEnd()
+        Console.Write(json & vbNewLine & vbNewLine)
     End Sub
 
 
@@ -208,7 +281,7 @@ Public Class GR
         Dim web As New WebClient()
         web.Credentials = mycache
 
-        Dim json = web.DownloadString(_grUrl & "entity_types?access_token=" & _apikey.ToString & "&filters[field_type]=entity")
+        Dim json = web.DownloadString(_grUrl & "entity_types?access_token=" & _apikey.ToString)
 
         Dim jss = New Web.Script.Serialization.JavaScriptSerializer()
         Dim allEntityTypes = jss.Deserialize(Of Dictionary(Of String, List(Of Dictionary(Of String, Object))))(json)
