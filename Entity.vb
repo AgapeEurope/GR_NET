@@ -31,6 +31,11 @@ Public Class Entity
     ''' <param name="Value">The value of this property (eg London)</param>
     ''' <remarks></remarks>
     Public Sub AddPropertyValue(ByVal Key As String, ByVal Value As String)
+        If Key = "ID" Then
+            Me.ID = Value
+            Return
+        End If
+
         'Key uses DotNotation. (eg. "Address.Line1")
         If (Not String.IsNullOrEmpty(Value)) Then
 
@@ -135,10 +140,5 @@ Public Class Entity
     End Function
 #End Region
 
-    Public Sub New(Optional ByVal json As String = Nothing)
-        If Not String.IsNullOrEmpty(json) Then
-            'prepopulate from json...
-        End If
-
-    End Sub
+    
 End Class

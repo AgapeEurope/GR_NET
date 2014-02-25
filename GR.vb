@@ -72,12 +72,12 @@ Public Class GR
     ''' <remarks></remarks>
     Public Sub SyncPeople()
         For Each person In People.people_list
-            SyncPerson(person)
+            CreateEntity(person, "person")
         Next
 
     End Sub
 
-    Public Sub CreateEntity(ByRef p As Entity, ByVal EntityName As String)
+    Public Function CreateEntity(ByRef p As Entity, ByVal EntityName As String) As Integer
         Dim postData = "{""entity"": {""" & EntityName & """:" & p.ToJson & "}}"
         Console.Write(postData & vbNewLine)
         Dim rest = _grUrl & "entities?access_token=" & _apikey.ToString
@@ -97,13 +97,16 @@ Public Class GR
 
         Dim reader As New IO.StreamReader(response.GetResponseStream())
         Dim json = reader.ReadToEnd()
-        Console.Write(json & vbNewLine & vbNewLine)
+        Dim newEntity = CreateEntityFromJsonResp(json)
+        Return newEntity.ID
+
+        ' Console.Write(json & vbNewLine & vbNewLine)
 
         'ID's need to be written back to Entity structure
 
-    End Sub
+    End Function
 
-    Public Sub UpdateEntity(ByRef p As Entity, ByVal EntityName As String)
+    Public Function UpdateEntity(ByRef p As Entity, ByVal EntityName As String) As Integer
         Dim postData = "{""entity"": {""" & EntityName & """:" & p.ToJson & "}}"
         Console.Write(postData & vbNewLine)
         Dim rest = _grUrl & "entities/" & p.ID & "/?access_token=" & _apikey.ToString
@@ -123,13 +126,14 @@ Public Class GR
 
         Dim reader As New IO.StreamReader(response.GetResponseStream())
         Dim json = reader.ReadToEnd()
-        Console.Write(json & vbNewLine & vbNewLine)
+        Dim newEntity = CreateEntityFromJsonResp(json)
+        Return newEntity.ID
 
         'ID's need to be writted back to entity structure
-    End Sub
+    End Function
 
     Public Sub DeleteEntity(ByVal ID As Integer)
-        Dim rest = _grUrl & "entities/" & ID & "/?access_token=" & _apikey.ToString
+        Dim rest = _grUrl & "entities/" & ID & "?access_token=" & _apikey.ToString
         Dim request As HttpWebRequest = DirectCast(WebRequest.Create(rest), HttpWebRequest)
 
         request.Method = "DELETE"
@@ -142,11 +146,11 @@ Public Class GR
 
     Public Function GetEntity(ByVal ID As Integer) As Entity
         Dim web As New WebClient()
-        Dim json = Web.DownloadString(_grUrl & "entities/" & ID & "/?access_token=" & _apikey.ToString)
+        Dim json = web.DownloadString(_grUrl & "entities" & ID & "/?access_token=" & _apikey.ToString)
 
         'TODO: Need a construction on Entity to create from JSON
-        Return New Entity()
-
+        ' Return New Entity(json)
+        Return CreateEntityFromJsonResp(json)
     End Function
 
 
@@ -155,28 +159,29 @@ Public Class GR
     ''' </summary>
     ''' <param name="p">The entity to update (or entity tree).</param>
     ''' <remarks>Only one root entity permitted. You must have a supplied a client_integration_id</remarks>
-    Public Sub SyncPerson(ByVal p As Entity)
-        Dim postData = "{""entity"": {""person"":" & p.ToJson & "}}"
-        Console.Write(postData & vbNewLine)
-        Dim rest = _grUrl & "entities?access_token=" & _apikey.ToString
-        Dim request As HttpWebRequest = DirectCast(WebRequest.Create(rest), HttpWebRequest)
+    'Public Sub SyncPerson(ByVal p As Entity)
+    '    Dim postData = "{""entity"": {""person"":" & p.ToJson & "}}"
+    '    Console.Write(postData & vbNewLine)
+    '    Dim rest = _grUrl & "entities?access_token=" & _apikey.ToString
+    '    Dim request As HttpWebRequest = DirectCast(WebRequest.Create(rest), HttpWebRequest)
 
-        request.Method = "POST"
+    '    request.Method = "POST"
 
-        Dim bytes As Byte() = Text.Encoding.UTF8.GetBytes(postData)
-        request.ContentLength = bytes.Length
-        request.ContentType = "application/json"
-        Dim requestStream = request.GetRequestStream()
-        requestStream.Write(bytes, 0, bytes.Length)
+    '    Dim bytes As Byte() = Text.Encoding.UTF8.GetBytes(postData)
+    '    request.ContentLength = bytes.Length
+    '    request.ContentType = "application/json"
+    '    Dim requestStream = request.GetRequestStream()
+    '    requestStream.Write(bytes, 0, bytes.Length)
 
 
 
-        Dim response As HttpWebResponse = DirectCast(request.GetResponse(), HttpWebResponse)
+    '    Dim response As HttpWebResponse = DirectCast(request.GetResponse(), HttpWebResponse)
 
-        Dim reader As New IO.StreamReader(response.GetResponseStream())
-        Dim json = reader.ReadToEnd()
-        Console.Write(json & vbNewLine & vbNewLine)
-    End Sub
+    '    Dim reader As New IO.StreamReader(response.GetResponseStream())
+    '    Dim json = reader.ReadToEnd()
+    '    Console.Write(json & vbNewLine & vbNewLine)
+    '    Dim test = CreateEntityFromJsonResp(json)
+    'End Sub
 
 
 #End Region
@@ -314,6 +319,63 @@ Public Class GR
 
         End If
     End Sub
+
+
+    Public Function CreateEntityFromJsonResp(Optional ByVal json As String = Nothing) As Entity
+        Dim rtn As New Entity()
+        If Not String.IsNullOrEmpty(json) Then
+            'prepopulate from json...
+            Dim jss = New Web.Script.Serialization.JavaScriptSerializer()
+            '  Dim ent_resp = jss.Deserialize(Of Dictionary(Of String, Dictionary(Of String, Dictionary(Of String, Object))))(json)
+            Dim ent_resp = jss.Deserialize(Of Dictionary(Of String, Dictionary(Of String, Object)))(json)
+
+
+            Dim person_dict As New Dictionary(Of String, String)
+
+            ProcessJsonEntity(ent_resp.Values.First.Values.First, "", person_dict)
+            For Each row In person_dict
+                rtn.AddPropertyValue(row.Key, row.Value)
+            Next
+
+
+
+        End If
+        Return rtn
+    End Function
+
+    Private Sub ProcessJsonEntity(ByVal input As Object, ByRef dot As String, ByRef person_dict As Dictionary(Of String, String))
+        If dot <> "" Then
+            dot &= "."
+        End If
+
+        Dim t As String = input.GetType.Name
+        If t.Contains("Dictionary") Then
+            For Each row2 In CType(input, Dictionary(Of String, Object))
+                ProcessJsonEntity(row2.Value, dot & row2.Key, person_dict)
+            Next
+
+
+        ElseIf t.Contains("List") Then
+            Dim i As Integer = 0
+            For Each row2 In CType(input.Value, List(Of Object))
+
+                ProcessJsonEntity(row2.Values, dot & "[" & i & "]", person_dict)
+                i += 1
+            Next
+
+
+
+
+
+        Else
+            person_dict.Add(dot.TrimEnd("."), input)
+        End If
+
+
+
+    End Sub
+
+
 #End Region
 
 
