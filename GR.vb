@@ -81,19 +81,69 @@ Public Class GR
         Dim postData = "{""entity"": {""" & EntityName & """:" & p.ToJson & "}}"
         Console.Write(postData & vbNewLine)
         Dim rest = _grUrl & "entities?access_token=" & _apikey.ToString
-        Dim request As HttpWebRequest = DirectCast(WebRequest.Create(rest), HttpWebRequest)
-
-        request.Method = "POST"
-
-        Dim bytes As Byte() = Text.Encoding.UTF8.GetBytes(postData)
-        request.ContentLength = bytes.Length
-        request.ContentType = "application/json"
-        Dim requestStream = request.GetRequestStream()
-        requestStream.Write(bytes, 0, bytes.Length)
 
 
 
-        Dim response As HttpWebResponse = DirectCast(request.GetResponse(), HttpWebResponse)
+        Dim success = False
+        Dim count = 0
+        Dim response As HttpWebResponse
+        While Not success
+
+
+            Try
+                Dim request As HttpWebRequest = DirectCast(WebRequest.Create(rest), HttpWebRequest)
+
+                request.Method = "POST"
+
+                Dim bytes As Byte() = Text.Encoding.UTF8.GetBytes(postData)
+                request.ContentLength = bytes.Length
+                request.ContentType = "application/json"
+                Dim requestStream = request.GetRequestStream()
+                requestStream.Write(bytes, 0, bytes.Length)
+
+                response = DirectCast(request.GetResponse(), HttpWebResponse)
+
+                success = True
+            Catch ex As WebException
+                Select Case CType(ex.Response, HttpWebResponse).StatusCode.ToString
+                    Case "500"
+                        count += 1
+                        If count > 5 Then
+                            Throw New Exception()
+                            success = True
+                            Threading.Thread.Sleep(10000)
+                        End If
+
+                    Case "400"
+                        'Bad request
+                        Throw ex
+                    Case "401"
+                        'Bad API key
+                        Throw ex
+                    Case "404"
+                        'not found
+                        Throw ex
+                    Case "304"
+                        'not Modified
+                        Throw ex
+                    Case "301"
+                        'duplicate... try here
+
+                    Case "201"
+                        'Create
+
+                    Case "200"
+                        'OK
+                    Case 304
+                    Case 301
+                    Case 201
+                    Case 200
+
+
+                End Select
+
+            End Try
+        End While
 
         Dim reader As New IO.StreamReader(response.GetResponseStream())
         Dim json = reader.ReadToEnd()
@@ -146,13 +196,22 @@ Public Class GR
 
     Public Function GetEntity(ByVal ID As Integer) As Entity
         Dim web As New WebClient()
-        Dim json = web.DownloadString(_grUrl & "entities" & ID & "/?access_token=" & _apikey.ToString)
+        Dim json = web.DownloadString(_grUrl & "entities/" & ID & "?access_token=" & _apikey.ToString)
 
-        'TODO: Need a construction on Entity to create from JSON
+
         ' Return New Entity(json)
         Return CreateEntityFromJsonResp(json)
     End Function
+    Public Function GetEntities(ByVal EntityType As String, ByVal Filters As String) As List(Of Entity)
+        Dim web As New WebClient()
+       
+        Dim json = web.DownloadString(_grUrl & "entities?access_token=" & _apikey.ToString & "&entity_type=" & EntityType & Filters)
+        Dim rtn As New List(Of Entity)
 
+        Return CreateEntitiesFromJsonResp(json)
+
+
+    End Function
 
     ''' <summary>
     ''' Update an enitity (or entity tree) on the on GR server
@@ -337,11 +396,37 @@ Public Class GR
                 rtn.AddPropertyValue(row.Key, row.Value)
             Next
 
+        End If
+        Return rtn
+    End Function
+
+    Public Function CreateEntitiesFromJsonResp(Optional ByVal json As String = Nothing) As List(Of Entity)
+        Dim rtn As New List(Of Entity)
+        If Not String.IsNullOrEmpty(json) Then
+            'prepopulate from json...
+            Dim jss = New Web.Script.Serialization.JavaScriptSerializer()
+            '  Dim ent_resp = jss.Deserialize(Of Dictionary(Of String, Dictionary(Of String, Dictionary(Of String, Object))))(json)
+            Dim ent_resp = jss.Deserialize(Of Dictionary(Of String, List(Of Dictionary(Of String, Object))))(json)
+
+
+
+            For Each row In ent_resp.Values.First
+                Dim person_dict As New Dictionary(Of String, String)
+                Dim ent As New Entity
+
+                ProcessJsonEntity(row.Values.First, "", person_dict)
+                For Each row2 In person_dict
+                    ent.AddPropertyValue(row2.Key, row2.Value)
+                Next
+                rtn.Add(ent)
+            Next
+
 
 
         End If
         Return rtn
     End Function
+
 
     Private Sub ProcessJsonEntity(ByVal input As Object, ByRef dot As String, ByRef person_dict As Dictionary(Of String, String))
         If dot <> "" Then

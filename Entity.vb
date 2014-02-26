@@ -24,6 +24,26 @@ Public Class Entity
 #End Region
 #Region "Public Methods"
 
+    Public Function GetPropertyValue(ByVal Key As String) As String
+        If Key = "id" Then
+            Return ID
+        ElseIf profileProperties.ContainsKey(Key) Then
+            Return profileProperties(Key).First
+
+        ElseIf Key.Contains(".") Then
+            Dim left_key = Key.Substring(0, Key.IndexOf("."))
+            Dim right_key = Key.Substring(Key.IndexOf(".") + 1)
+            If collections.ContainsKey(left_key) Then
+                Return collections(left_key).First.GetPropertyValue(right_key)
+
+
+            End If
+
+        End If
+        Return ""
+    End Function
+
+
     ''' <summary>
     ''' Recursive method to add a property (and its ancestor entities)
     ''' </summary>
@@ -31,8 +51,8 @@ Public Class Entity
     ''' <param name="Value">The value of this property (eg London)</param>
     ''' <remarks></remarks>
     Public Sub AddPropertyValue(ByVal Key As String, ByVal Value As String)
-        If Key = "ID" Then
-            Me.ID = Value
+        If Key = "id" Then
+            Me._id = Value
             Return
         End If
 
@@ -66,9 +86,6 @@ Public Class Entity
 
 
                 End If
-
-
-
 
             Else
                 'The property belonds to an entity that is a decendant of this one. 
