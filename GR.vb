@@ -55,14 +55,49 @@ Public Class GR
         If Not apiKey = Nothing Then
             _apikey = apiKey
         End If
-        _grUrl = gr_url
+
+        _grUrl = gr_url.TrimEnd("/") & "/"  'ensure url ends in '/'
 
         GetEntityTypeDefFromGR()
 
     End Sub
 #End Region
 
+#Region "Public Methods - Measurements"
+    Public Function GetMeasurements(ByVal MeasurementTypeId As String, ByVal RelatedEntityId As String, ByVal PeriodFrom As String, ByVal PeriodTo As String) As MeasurementType
 
+        Dim web As New WebClient()
+        Dim extras As String = "&filters[period_from]=" & PeriodFrom & "&filters[period_to]=" & PeriodTo & "&filters[related_entity_id]=" & RelatedEntityId
+
+
+        Dim json = web.DownloadString(_grUrl & "measurement_types/" & MeasurementTypeId & "?access_token=" & _apikey.ToString & extras)
+
+        Dim jss = New Web.Script.Serialization.JavaScriptSerializer()
+        Dim ent = jss.Deserialize(Of Dictionary(Of String, Object))(json)
+        Dim rtn As New MeasurementType
+
+        rtn.ID = MeasurementTypeId
+        rtn.Name = ent("measurement_type")("name")
+        rtn.Description = ent("measurement_type")("description")
+        rtn.Category = ent("measurement_type")("category")
+        rtn.Frequency = ent("measurement_type")("frequency")
+        rtn.RelatedEntityTypeId = ent("measurement_type")("related_entity_type_id")
+        For Each row In ent("measurement_type")("measurements")
+            Dim insert As New Measurement
+            insert.Period = row("period")
+            insert.Value = row("value")
+            insert.RelatedEntityId = RelatedEntityId
+            rtn.measurements.Add(insert)
+        Next
+
+        Return rtn
+    End Function
+
+#End Region
+
+#Region "Public Methods - MeasurementTypes"
+
+#End Region
 
 #Region "Public Methods - Entities"
 
@@ -108,10 +143,11 @@ Public Class GR
                 Select Case CType(ex.Response, HttpWebResponse).StatusCode.ToString
                     Case "500"
                         count += 1
+                        Trace.TraceWarning("500 error from create entity: attempt " & count)
                         If count > 5 Then
-                            Throw New Exception()
+                            Throw ex
                             success = True
-                            Threading.Thread.Sleep(10000)
+
                         End If
 
                     Case "400"
@@ -128,16 +164,13 @@ Public Class GR
                         Throw ex
                     Case "301"
                         'duplicate... try here
-
+                        Trace.TraceWarning("Entity has been merged with duplicate, please use this new ID ID")
                     Case "201"
                         'Create
 
                     Case "200"
                         'OK
-                    Case 304
-                    Case 301
-                    Case 201
-                    Case 200
+
 
 
                 End Select
@@ -150,9 +183,6 @@ Public Class GR
         Dim newEntity = CreateEntityFromJsonResp(json)
         Return newEntity.ID
 
-        ' Console.Write(json & vbNewLine & vbNewLine)
-
-        'ID's need to be written back to Entity structure
 
     End Function
 
@@ -194,22 +224,45 @@ Public Class GR
         Console.Write(json & vbNewLine & vbNewLine)
     End Sub
 
-    Public Function GetEntity(ByVal ID As Integer) As Entity
+    Public Function GetEntity(ByVal ID As Integer, Optional ByVal AllSystems As Boolean = False) As Entity
         Dim web As New WebClient()
-        Dim json = web.DownloadString(_grUrl & "entities/" & ID & "?access_token=" & _apikey.ToString)
+        Dim extras As String = ""
+        If AllSystems Then
+            extras = "&created_by=all"
+        End If
+        Dim json = web.DownloadString(_grUrl & "entities/" & ID & "?access_token=" & _apikey.ToString & extras)
 
 
         ' Return New Entity(json)
         Return CreateEntityFromJsonResp(json)
     End Function
-    Public Function GetEntities(ByVal EntityType As String, ByVal Filters As String) As List(Of Entity)
+    Public Function GetEntities(ByVal EntityType As String, ByVal Filters As String, Optional ByVal Page As Integer = Nothing, Optional ByVal PerPage As Integer = Nothing, Optional ByRef TotalPage As Integer = 0) As List(Of Entity)
         Dim web As New WebClient()
-       
-        Dim json = web.DownloadString(_grUrl & "entities?access_token=" & _apikey.ToString & "&entity_type=" & EntityType & Filters)
+
+        Dim json = web.DownloadString(_grUrl & "entities?access_token=" & _apikey.ToString & "&entity_type=" & EntityType & Filters & CreatePageString(Page, PerPage))
+        TotalPage = GetTotalPagesFromJson(json)
         Dim rtn As New List(Of Entity)
 
         Return CreateEntitiesFromJsonResp(json)
 
+
+    End Function
+
+    Private Function GetTotalPagesFromJson(ByVal json As String) As Integer
+        Try
+            Dim jss = New Web.Script.Serialization.JavaScriptSerializer()
+            Dim ent = jss.Deserialize(Of Dictionary(Of String, Object))(json)
+            Return CInt(CType(ent("meta"), Dictionary(Of String, Object))("total_pages"))
+        Catch ex As Exception
+            Trace.TraceWarning("Could not process the ""meta"" response from get_entity to find total_pages")
+            Return 1
+        End Try
+
+
+    End Function
+
+    Private Function CreatePageString(ByVal Page As Integer, ByVal PerPage As Integer)
+        Return IIf(Page = Nothing, IIf(PerPage = Nothing, "", "&per_page=" & PerPage), "&page=" & Page & IIf(PerPage = Nothing, "", "&per_page=" & PerPage))
 
     End Function
 
@@ -442,9 +495,20 @@ Public Class GR
 
         ElseIf t.Contains("List") Then
             Dim i As Integer = 0
-            For Each row2 In CType(input.Value, List(Of Object))
+            For Each row2 In CType(input, ArrayList)
+                Dim t2 As String = row2.GetType().Name
+                If (t2 = "String") Then
+                    person_dict.Add(dot.TrimEnd(".") & "[" & i & "]", row2)
+                ElseIf t2.Contains("Dictionary") Then
+                    For Each row3 In CType(row2, Dictionary(Of String, Object))
+                        ProcessJsonEntity(row3.Value, dot.TrimEnd(".") & "[" & i & "]." & row3.Key, person_dict)
+                    Next
+                Else
 
-                ProcessJsonEntity(row2.Values, dot & "[" & i & "]", person_dict)
+
+                    ProcessJsonEntity(row2.Value, dot.TrimEnd(".") & "[" & i & "]", person_dict)
+                End If
+
                 i += 1
             Next
 
@@ -452,7 +516,7 @@ Public Class GR
 
 
 
-        Else
+        ElseIf Not t.Contains("Collection") Then
             person_dict.Add(dot.TrimEnd("."), input)
         End If
 

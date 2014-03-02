@@ -28,13 +28,14 @@ Public Class Entity
         If Key = "id" Then
             Return ID
         ElseIf profileProperties.ContainsKey(Key) Then
-            Return profileProperties(Key).First
+            Return profileProperties(Key).GroupBy(Function(n) n).OrderByDescending(Function(g) g.Count).Select(Function(g) g.Key).FirstOrDefault
 
         ElseIf Key.Contains(".") Then
             Dim left_key = Key.Substring(0, Key.IndexOf("."))
             Dim right_key = Key.Substring(Key.IndexOf(".") + 1)
             If collections.ContainsKey(left_key) Then
-                Return collections(left_key).First.GetPropertyValue(right_key)
+                Return collections(left_key).GroupBy(Function(n) n.GetPropertyValue(right_key)).OrderByDescending(Function(g) g.Count).Select(Function(g) g.Key).FirstOrDefault
+                '  Return collections(left_key).First.GetPropertyValue(right_key)
 
 
             End If
@@ -57,60 +58,60 @@ Public Class Entity
         End If
 
         'Key uses DotNotation. (eg. "Address.Line1")
-        If (Not String.IsNullOrEmpty(Value)) Then
+        ' If (Not String.IsNullOrEmpty(Value)) Then
 
 
-            Dim keys As String() = Key.Split(".")
+        Dim keys As String() = Key.Split(".")
 
-            Dim thisKey = keys(0)
-            Dim index As Integer = 0
-            If thisKey.Contains("[") Then
-                index = thisKey.Substring(thisKey.IndexOf("[") + 1, (thisKey.IndexOf("]") - thisKey.IndexOf("[")) - 1)
-                thisKey = thisKey.Substring(0, thisKey.IndexOf("["))
+        Dim thisKey = keys(0)
+        Dim index As Integer = 0
+        If thisKey.Contains("[") Then
+            index = thisKey.Substring(thisKey.IndexOf("[") + 1, (thisKey.IndexOf("]") - thisKey.IndexOf("[")) - 1)
+            thisKey = thisKey.Substring(0, thisKey.IndexOf("["))
 
-            End If
-            If keys.Count = 1 Then
+        End If
+        If keys.Count = 1 Then
 
-                'This is the direct parent of the entity that contains the property
-                'check for replace option, and change/add property as appropriate
-                If Not profileProperties.ContainsKey(thisKey) Then
+            'This is the direct parent of the entity that contains the property
+            'check for replace option, and change/add property as appropriate
+            If Not profileProperties.ContainsKey(thisKey) Then
 
-                    profileProperties.Add(thisKey, {Value}.ToList)
-                Else
-                    While profileProperties(thisKey).Count < index + 1 ' make sure the indexes exist
-                        profileProperties(thisKey).Add("")
-                    End While
-
-                    profileProperties(thisKey)(index) = Value
-
-
-
-                End If
-
+                profileProperties.Add(thisKey, {Value}.ToList)
             Else
-                'The property belonds to an entity that is a decendant of this one. 
-                Key = Key.Replace(keys(0) & ".", "")
-                If Not collections.ContainsKey(thisKey) Then  ' Check if the next entity key exists
-                    'The next entity supplied in dot notation does not exist. Create this entity and carry on
-                    Dim ent As New Entity()
-                    collections.Add(thisKey, {ent}.ToList)
-
-                End If
-                While collections(thisKey).Count < index + 1  ' check if this index exists in the collection lit.
-                    Dim ent As New Entity()
-                    collections(thisKey).Add(ent)
+                While profileProperties(thisKey).Count < index + 1 ' make sure the indexes exist
+                    profileProperties(thisKey).Add("")
                 End While
 
+                profileProperties(thisKey)(index) = Value
 
-                'Carry on down the family tree!
-
-                collections(thisKey)(index).AddPropertyValue(Key, Value)
 
 
             End If
+
+        Else
+            'The property belonds to an entity that is a decendant of this one. 
+            Key = Key.Replace(keys(0) & ".", "")
+            If Not collections.ContainsKey(thisKey) Then  ' Check if the next entity key exists
+                'The next entity supplied in dot notation does not exist. Create this entity and carry on
+                Dim ent As New Entity()
+                collections.Add(thisKey, {ent}.ToList)
+
+            End If
+            While collections(thisKey).Count < index + 1  ' check if this index exists in the collection lit.
+                Dim ent As New Entity()
+                collections(thisKey).Add(ent)
+            End While
+
+
+            'Carry on down the family tree!
+
+            collections(thisKey)(index).AddPropertyValue(Key, Value)
 
 
         End If
+
+
+        '  End If
     End Sub
 
 
