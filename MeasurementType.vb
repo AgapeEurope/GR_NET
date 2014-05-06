@@ -58,8 +58,64 @@
             _relatedEntityTypeId = value
         End Set
     End Property
+    Private _unit As String
+    Public Property Unit() As String
+        Get
+            Return _unit
+        End Get
+        Set(ByVal value As String)
+            _unit = value
+        End Set
+    End Property
 
     Public measurements As New List(Of Measurement)
+    Public Sub addMeasurement(ByVal RelatedEntityId As Integer, ByVal Period As String, ByVal Value As Double)
+        Dim existing = measurements.Where(Function(c As Measurement) c.Period = Period And c.RelatedEntityId = RelatedEntityId)
+        If existing.Count = 0 Then
+            Dim m As New Measurement()
+            m.Period = Period
+            m.Value = Value
+            m.RelatedEntityId = RelatedEntityId
+            measurements.Add(m)
+
+        End If
+
+    End Sub
 
 
+    Public Function MeasurementsToJson() As String
+        Dim rtn = "{""measurements"": ["
+
+        For Each row In measurements
+            rtn &= "{""measurement_type_id"":" & ID & "," _
+                & """related_entity_id"":" & row.RelatedEntityId & "," _
+         & """period"": """ & row.Period & """," _
+         & """value"": """ & row.Value & """},"
+        Next
+        rtn = rtn.TrimEnd(",")
+        rtn &= "]}"
+        Return rtn
+    End Function
+    Public Function ToJson() As String
+        Dim rtn = "{""measurement_type"": {"
+        AddTag(rtn, "name", Name)
+        AddTag(rtn, "description", Description)
+        AddTag(rtn, "frequency", Frequency)
+        AddTag(rtn, "category", Category)
+        AddTag(rtn, "relationhip_type_id", RelatedEntityTypeId, False)
+
+        rtn = rtn.TrimEnd(",")
+
+
+        rtn &= "}}"
+        Return rtn
+    End Function
+
+    Private Sub AddTag(ByRef rtn As String, ByVal name As String, ByVal value As String, Optional ByVal isString As Boolean = True)
+        If Not String.IsNullOrEmpty(value) Then
+            rtn &= """" & name & """ : """ & value & ""","
+
+        End If
+
+    End Sub
 End Class

@@ -6,21 +6,24 @@
 Public Class Entity
 
 #Region "Private Members"
-    Private _id As Integer
-    Public Property ID() As Integer
+    Private _id As String
+    Public Property ID() As String
         Get
             Return _id
         End Get
-        Set(ByVal value As Integer)
+        Set(ByVal value As String)
             _id = value
         End Set
     End Property
 
+
+
+
     'profileproperties is a Dictionary (key/value pair) of attributes for this entity
-    Private profileProperties As New Dictionary(Of String, List(Of String))
+    Public profileProperties As New Dictionary(Of String, List(Of String))
 
     'collections is a Dictionary (key/value pair) of child entities. The key is the name, and the value is the child Entity
-    Private collections As New Dictionary(Of String, List(Of Entity))
+    Public collections As New Dictionary(Of String, List(Of Entity))
 #End Region
 #Region "Public Methods"
 
@@ -44,6 +47,9 @@ Public Class Entity
         Return ""
     End Function
 
+    Public Function HasValues() As Boolean
+        Return profileProperties.Count + collections.Count > 0
+    End Function
 
     ''' <summary>
     ''' Recursive method to add a property (and its ancestor entities)
@@ -52,6 +58,9 @@ Public Class Entity
     ''' <param name="Value">The value of this property (eg London)</param>
     ''' <remarks></remarks>
     Public Sub AddPropertyValue(ByVal Key As String, ByVal Value As String)
+        If Value Is Nothing Then
+            Return
+        End If
         If Key = "id" Then
             Me._id = Value
             Return
@@ -120,7 +129,7 @@ Public Class Entity
     ''' </summary>
     ''' <returns></returns>
     ''' <remarks>The JSON response can be supplied to GR API to add/update this entity (and its decendants) to the GR</remarks>
-    Public Function ToJson() As String
+    Public Function ToJson(Optional ByVal sbc As String = "") As String
         Dim json As String = "{"
         For Each row In profileProperties.Where(Function(c) c.Value.Count > 0)
             If row.Value.Count > 1 Then

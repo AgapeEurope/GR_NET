@@ -19,12 +19,12 @@ Public Class EntityType
         End Set
     End Property
 
-    Private _id As Integer
-    Public Property ID() As Integer
+    Private _id As String
+    Public Property ID() As String
         Get
             Return _id
         End Get
-        Set(ByVal value As Integer)
+        Set(ByVal value As String)
             _id = value
         End Set
     End Property
@@ -60,6 +60,26 @@ Public Class EntityType
         End Set
     End Property
 
+    Private _relationship_types As List(Of RelationshipType)
+    Public Property RelationshipTypes() As List(Of RelationshipType)
+        Get
+            Return _relationship_types
+        End Get
+        Set(ByVal value As List(Of RelationshipType))
+            _relationship_types = value
+        End Set
+    End Property
+
+    Private _measurement_types As List(Of MeasurementType)
+    Public Property MeasurementTypes() As List(Of MeasurementType)
+        Get
+            Return _measurement_types
+        End Get
+        Set(ByVal value As List(Of MeasurementType))
+            _measurement_types = value
+        End Set
+    End Property
+
 
     Public Function IsCollection() As Boolean
         Return _children.Count > 0
@@ -78,7 +98,7 @@ Public Class EntityType
     ''' <param name="Type_Id"></param>
     ''' <param name="Type_Parent"></param>
     ''' <remarks></remarks>
-    Public Sub New(ByVal Type_Name As String, ByVal Type_Id As Integer, Optional Type_Parent As EntityType = Nothing)
+    Public Sub New(ByVal Type_Name As String, ByVal Type_Id As String, Optional Type_Parent As EntityType = Nothing)
         _name = Type_Name
         _id = Type_Id
         If Not Type_Parent Is Nothing Then

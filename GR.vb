@@ -64,39 +64,229 @@ Public Class GR
 #End Region
 
 #Region "Public Methods - Measurements"
-    Public Function GetMeasurements(ByVal MeasurementTypeId As String, ByVal RelatedEntityId As String, ByVal PeriodFrom As String, ByVal PeriodTo As String) As MeasurementType
+    Public Function GetMeasurements(ByVal RelatedEntityId As String, ByVal PeriodFrom As String, ByVal PeriodTo As String, Optional ByVal MeasurementTypeId As String = "", Optional Category As String = "", Optional DefinitionOnly As Boolean = False) As List(Of MeasurementType)
 
         Dim web As New WebClient()
         Dim extras As String = "&filters[period_from]=" & PeriodFrom & "&filters[period_to]=" & PeriodTo & "&filters[related_entity_id]=" & RelatedEntityId
+        If Category <> "" Then
+            extras &= "&filters[category]=" & Category
+        End If
+        If DefinitionOnly Then
+            extras = "&filters[related_entity_type_id]=" & RelatedEntityId
 
-
-        Dim json = web.DownloadString(_grUrl & "measurement_types/" & MeasurementTypeId & "?access_token=" & _apikey.ToString & extras)
+        End If
+        Dim typeString = ""
+        If MeasurementTypeId = "" Then
+            typeString = "measurement_types/" & MeasurementTypeId
+        End If
+        Dim json = web.DownloadString(_grUrl & typeString & "?access_token=" & _apikey.ToString & extras)
 
         Dim jss = New Web.Script.Serialization.JavaScriptSerializer()
         Dim ent = jss.Deserialize(Of Dictionary(Of String, Object))(json)
-        Dim rtn As New MeasurementType
 
-        rtn.ID = MeasurementTypeId
-        rtn.Name = ent("measurement_type")("name")
-        rtn.Description = ent("measurement_type")("description")
-        rtn.Category = ent("measurement_type")("category")
-        rtn.Frequency = ent("measurement_type")("frequency")
-        rtn.RelatedEntityTypeId = ent("measurement_type")("related_entity_type_id")
-        For Each row In ent("measurement_type")("measurements")
-            Dim insert As New Measurement
-            insert.Period = row("period")
-            insert.Value = row("value")
-            insert.RelatedEntityId = RelatedEntityId
-            rtn.measurements.Add(insert)
-        Next
+
+
+        Dim rtn As New List(Of MeasurementType)
+
+
+        If ent.ContainsKey("measurement_type") Then
+            Dim insert As New MeasurementType
+            insert.ID = ent("measurement_type")("id")
+            insert.Name = ent("measurement_type")("name")
+            insert.Description = ent("measurement_type")("description")
+            insert.Category = ent("measurement_type")("category")
+            insert.Frequency = ent("measurement_type")("frequency")
+            insert.RelatedEntityTypeId = ent("measurement_type")("related_entity_type_id")
+            For Each row In ent("measurement_type")("measurements")
+                Dim insertm As New Measurement
+                insertm.Period = row("period")
+                insertm.Value = row("value")
+                insertm.RelatedEntityId = RelatedEntityId
+                insert.measurements.Add(insertm)
+            Next
+            rtn.Add(insert)
+        Else
+            For Each row In ent("measurement_types")
+                Dim insert As New MeasurementType
+                insert.ID = row("id")
+                insert.Name = row("name")
+                insert.Description = row("description")
+                insert.Category = row("category")
+                insert.Frequency = row("frequency")
+                insert.RelatedEntityTypeId = row("related_entity_type_id")
+                For Each row2 In row("measurements")
+                    Dim insertm As New Measurement
+                    insertm.Period = row2("period")
+                    insertm.Value = row2("value")
+                    insertm.RelatedEntityId = RelatedEntityId
+                    insert.measurements.Add(insertm)
+                Next
+                rtn.Add(insert)
+            Next
+
+
+        End If
+
 
         Return rtn
     End Function
+
+    
+
+
+    Public Sub AddUpdateMeasurement(ByVal mt As MeasurementType)
+        Dim postData = mt.MeasurementsToJson
+
+        Dim rest = _grUrl & "measurements?access_token=" & _apikey.ToString
+
+
+        Dim success = False
+        Dim count = 0
+        Dim response As HttpWebResponse
+        While Not success
+
+
+            Try
+                Dim request As HttpWebRequest = DirectCast(WebRequest.Create(rest), HttpWebRequest)
+
+                request.Method = "POST"
+
+                Dim bytes As Byte() = Text.Encoding.UTF8.GetBytes(postData)
+                request.ContentLength = bytes.Length
+                request.ContentType = "application/json"
+                Dim requestStream = request.GetRequestStream()
+                requestStream.Write(bytes, 0, bytes.Length)
+
+                response = DirectCast(request.GetResponse(), HttpWebResponse)
+
+                success = True
+            Catch ex As WebException
+                count += 1
+                Select Case CType(ex.Response, HttpWebResponse).StatusCode.ToString
+                    Case "500"
+                        count += 1
+                        Trace.TraceWarning("500 error from create entity: attempt " & count)
+                        If count > 5 Then
+                            Throw ex
+                            success = True
+
+                        End If
+
+                    Case "400"
+                        'Bad request
+                        Throw ex
+                    Case "401"
+                        'Bad API key
+                        Throw ex
+                    Case "404"
+                        'not found
+                        Throw ex
+                    Case "304"
+                        'not Modified
+                        Throw ex
+                    Case "301"
+                        'duplicate... try here
+                        Trace.TraceWarning("Entity has been merged with duplicate, please use this new ID ID")
+                    Case "201"
+                        'Create
+
+                    Case "200"
+                        'OK
+
+
+
+                End Select
+
+            End Try
+        End While
+
+        Dim reader As New IO.StreamReader(response.GetResponseStream())
+        Dim json = reader.ReadToEnd()
+        '  Dim newEntity = CreateEntityFromJsonResp(json)
+        ' Return newEntity.ID
+
+    End Sub
 
 #End Region
 
 #Region "Public Methods - MeasurementTypes"
 
+    
+
+
+
+    Public Sub AddMeasurementType(ByVal mt As MeasurementType)
+        Dim postData = mt.ToJson()
+
+        Dim rest = _grUrl & "measurement_types?access_token=" & _apikey.ToString
+
+
+        Dim success = False
+        Dim count = 0
+        Dim response As HttpWebResponse
+        While Not success
+
+
+            Try
+                Dim request As HttpWebRequest = DirectCast(WebRequest.Create(rest), HttpWebRequest)
+
+                request.Method = "POST"
+
+                Dim bytes As Byte() = Text.Encoding.UTF8.GetBytes(postData)
+                request.ContentLength = bytes.Length
+                request.ContentType = "application/json"
+                Dim requestStream = request.GetRequestStream()
+                requestStream.Write(bytes, 0, bytes.Length)
+
+                response = DirectCast(request.GetResponse(), HttpWebResponse)
+
+                success = True
+            Catch ex As WebException
+                count += 1
+                Select Case CType(ex.Response, HttpWebResponse).StatusCode.ToString
+                    Case "500"
+                        count += 1
+                        Trace.TraceWarning("500 error from create entity: attempt " & count)
+                        If count > 5 Then
+                            Throw ex
+                            success = True
+
+                        End If
+
+                    Case "400"
+                        'Bad request
+                        Throw ex
+                    Case "401"
+                        'Bad API key
+                        Throw ex
+                    Case "404"
+                        'not found
+                        Throw ex
+                    Case "304"
+                        'not Modified
+                        Throw ex
+                    Case "301"
+                        'duplicate... try here
+                        Trace.TraceWarning("Entity has been merged with duplicate, please use this new ID ID")
+                    Case "201"
+                        'Create
+
+                    Case "200"
+                        'OK
+
+
+
+                End Select
+
+            End Try
+        End While
+
+        Dim reader As New IO.StreamReader(response.GetResponseStream())
+        Dim json = reader.ReadToEnd()
+        '  Dim newEntity = CreateEntityFromJsonResp(json)
+        ' Return newEntity.ID
+
+    End Sub
 #End Region
 
 #Region "Public Methods - Entities"
@@ -142,12 +332,13 @@ Public Class GR
             Catch ex As WebException
                 Select Case CType(ex.Response, HttpWebResponse).StatusCode.ToString
                     Case "500"
-                        count += 1
-                        Trace.TraceWarning("500 error from create entity: attempt " & count)
-                        If count > 5 Then
-                            Throw ex
-                            success = True
 
+                        Trace.TraceWarning("500 error from create entity: attempt " & count)
+                        count += 1
+                        If count > 5 Then
+                            success = True
+                            Throw ex
+                          
                         End If
 
                     Case "400"
@@ -164,17 +355,28 @@ Public Class GR
                         Throw ex
                     Case "301"
                         'duplicate... try here
-                        Trace.TraceWarning("Entity has been merged with duplicate, please use this new ID ID")
+                        Trace.TraceWarning("Entity has been merged with duplicate, please use this new ID ")
+
+
+                        success = True
+
                     Case "201"
                         'Create
-
+                        success = True
                     Case "200"
                         'OK
+                    Case Else
 
-
+                        count += 1
+                        If count > 5 Then
+                            success = True
+                            'Throw ex
+                            Console.Write("ERROR - gave up after 5 attempts!!!" & vbNewLine)
+                            Return Nothing
+                        End If
 
                 End Select
-
+                
             End Try
         End While
 
@@ -187,8 +389,12 @@ Public Class GR
     End Function
 
     Public Function UpdateEntity(ByRef p As Entity, ByVal EntityName As String) As Integer
+        If Not p.HasValues Then
+            Return p.ID
+        End If
         Dim postData = "{""entity"": {""" & EntityName & """:" & p.ToJson & "}}"
         Console.Write(postData & vbNewLine)
+        Trace.WriteLine("to_update:" & postData)
         Dim rest = _grUrl & "entities/" & p.ID & "/?access_token=" & _apikey.ToString
         Dim request As HttpWebRequest = DirectCast(WebRequest.Create(rest), HttpWebRequest)
 
@@ -206,13 +412,14 @@ Public Class GR
 
         Dim reader As New IO.StreamReader(response.GetResponseStream())
         Dim json = reader.ReadToEnd()
+        Trace.WriteLine("from-update:" & json)
         Dim newEntity = CreateEntityFromJsonResp(json)
         Return newEntity.ID
 
         'ID's need to be writted back to entity structure
     End Function
 
-    Public Sub DeleteEntity(ByVal ID As Integer)
+    Public Sub DeleteEntity(ByVal ID As String)
         Dim rest = _grUrl & "entities/" & ID & "?access_token=" & _apikey.ToString
         Dim request As HttpWebRequest = DirectCast(WebRequest.Create(rest), HttpWebRequest)
 
@@ -224,7 +431,7 @@ Public Class GR
         Console.Write(json & vbNewLine & vbNewLine)
     End Sub
 
-    Public Function GetEntity(ByVal ID As Integer, Optional ByVal AllSystems As Boolean = False) As Entity
+    Public Function GetEntity(ByVal ID As String, Optional ByVal AllSystems As Boolean = False) As Entity
         Dim web As New WebClient()
         Dim extras As String = ""
         If AllSystems Then
@@ -236,7 +443,7 @@ Public Class GR
         ' Return New Entity(json)
         Return CreateEntityFromJsonResp(json)
     End Function
-    Public Function GetEntities(ByVal EntityType As String, ByVal Filters As String, Optional ByVal Page As Integer = Nothing, Optional ByVal PerPage As Integer = Nothing, Optional ByRef TotalPage As Integer = 0) As List(Of Entity)
+    Public Function GetEntities(ByVal EntityType As String, ByVal Filters As String, Optional ByVal Page As Integer = 0, Optional ByVal PerPage As Integer = 0, Optional ByRef TotalPage As Integer = 0) As List(Of Entity)
         Dim web As New WebClient()
 
         Dim json = web.DownloadString(_grUrl & "entities?access_token=" & _apikey.ToString & "&entity_type=" & EntityType & Filters & CreatePageString(Page, PerPage))
@@ -247,6 +454,66 @@ Public Class GR
 
 
     End Function
+
+    Public Sub RelateEntity(ByVal EntityType1 As String, ByVal Id1 As String, ByVal EntityType2 As String, ByVal Id2 As String, ByVal RelationshipType As String, Optional Role As String = "")
+        Dim r As String = ""
+        If Not Role = "" Then
+            r = ",""role"": """ & Role & """"
+        End If
+
+        Dim postData = "{""entity"":{""" & EntityType1 & """: {""" & RelationshipType & ":relationship"":{""" & EntityType2 & """: """ & Id2 & """" & r & "}}}}"
+        Console.Write(postData & vbNewLine)
+        Trace.WriteLine("to_update:" & postData)
+        Dim rest = _grUrl & "entities/" & Id1 & "/?access_token=" & _apikey.ToString
+        Dim request As HttpWebRequest = DirectCast(WebRequest.Create(rest), HttpWebRequest)
+
+        request.Method = "PUT"
+
+        Dim bytes As Byte() = Text.Encoding.UTF8.GetBytes(postData)
+        request.ContentLength = bytes.Length
+        request.ContentType = "application/json"
+        Dim requestStream = request.GetRequestStream()
+        requestStream.Write(bytes, 0, bytes.Length)
+
+
+
+        Dim response As HttpWebResponse = DirectCast(request.GetResponse(), HttpWebResponse)
+
+        Dim reader As New IO.StreamReader(response.GetResponseStream())
+        Dim json = reader.ReadToEnd()
+        Trace.WriteLine("from-update:" & json)
+        Dim newEntity = CreateEntityFromJsonResp(json)
+
+    End Sub
+    Public Function GetRelationshipsForEntityType(ByVal entity_type_id As String) As List(Of RelationshipType)
+        Dim web As New WebClient()
+
+        Dim json = web.DownloadString(_grUrl & "relationship_types?access_token=" & _apikey.ToString & "&filters[involving]=" & entity_type_id)
+        Dim jss = New Web.Script.Serialization.JavaScriptSerializer()
+        Dim rts = jss.Deserialize(Of Dictionary(Of String, List(Of Dictionary(Of String, Object))))(json)
+        Dim rtn As New List(Of RelationshipType)
+        If rts.ContainsKey("relationship_types") Then
+            For Each row In rts("relationship_types")
+                Dim insert As New RelationshipType
+                insert.ID = row("id")
+                insert.Relationship1 = row("relationship1")
+                insert.Relationship2 = row("relationship2")
+                insert.EntityType1 = GetEntityType(row("entity_type1_id"))
+                insert.EntityType2 = GetEntityType(row("entity_type2_id"))
+
+
+                rtn.Add(insert)
+
+
+
+            Next
+        End If
+
+
+
+        Return rtn
+    End Function
+
 
     Private Function GetTotalPagesFromJson(ByVal json As String) As Integer
         Try
@@ -262,7 +529,7 @@ Public Class GR
     End Function
 
     Private Function CreatePageString(ByVal Page As Integer, ByVal PerPage As Integer)
-        Return IIf(Page = Nothing, IIf(PerPage = Nothing, "", "&per_page=" & PerPage), "&page=" & Page & IIf(PerPage = Nothing, "", "&per_page=" & PerPage))
+        Return IIf(Page = Nothing, IIf(PerPage = 0, "", "&per_page=" & PerPage), "&page=" & Page & IIf(PerPage = 0, "", "&per_page=" & PerPage))
 
     End Function
 
@@ -363,7 +630,7 @@ Public Class GR
 
     End Function
 
-    Private Sub CreateEntityType(ByVal Name As String, ByVal ParentId As Integer, ByVal type As String)
+    Public Sub CreateEntityType(ByVal Name As String, ByVal ParentId As String, ByVal type As String)
 
         Dim postData = "{""entity_type"": {""name"":""" & Name & """, ""field_type"":""" & type & """,""parent_id"":""" & IIf(ParentId = Nothing, "null", ParentId) & """}}"
 
@@ -418,7 +685,12 @@ Public Class GR
     ''' <param name="Parent"></param>
     ''' <remarks></remarks>
     Private Sub addSubEntityTypes(ByVal input As Dictionary(Of String, Object), ByRef Parent As EntityType)
+
         Dim insert As New EntityType(input("name"), input("id"), Parent)
+        If input.ContainsKey("field_type") Then
+            insert.Field_Type = input("field_type")
+        End If
+
         If input.ContainsKey("fields") Then
             For Each row As Dictionary(Of String, Object) In input("fields")
 
@@ -432,6 +704,30 @@ Public Class GR
         End If
     End Sub
 
+    Public Function GetEntityType(ByVal ID As String) As EntityType
+        Dim rtn As EntityType
+        For Each row In entity_types_def
+
+            searchForEntityType(ID, row, rtn)
+            If Not rtn Is Nothing Then
+                Return rtn
+            End If
+        Next
+        Return rtn
+    End Function
+
+    Private Sub searchForEntityType(ByVal Id As String, ByVal et As EntityType, ByRef rtn As EntityType)
+        If et.ID = Id Then
+            rtn = et
+            Return
+        Else
+            For Each child In et.Children
+                searchForEntityType(Id, child, rtn)
+            Next
+
+
+        End If
+    End Sub
 
     Public Function CreateEntityFromJsonResp(Optional ByVal json As String = Nothing) As Entity
         Dim rtn As New Entity()
