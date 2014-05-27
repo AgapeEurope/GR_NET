@@ -297,8 +297,85 @@ Public Class GR
             End Try
         End While
 
-        Dim reader As New IO.StreamReader(response.GetResponseStream())
-        Dim json = reader.ReadToEnd()
+        'Dim reader As New IO.StreamReader(response.GetResponseStream())
+        'Dim json = reader.ReadToEnd()
+        '  Dim newEntity = CreateEntityFromJsonResp(json)
+        ' Return newEntity.ID
+
+    End Sub
+
+
+    Public Sub UpdateMeasurementType(ByVal mt As MeasurementType)
+        Dim postData = mt.ToJson()
+
+        Dim rest = _grUrl & "measurement_types/" & mt.ID & "?access_token=" & _apikey.ToString
+
+
+        Dim success = False
+        Dim count = 0
+        Dim response As HttpWebResponse
+        While Not success
+
+
+            Try
+                Dim request As HttpWebRequest = DirectCast(WebRequest.Create(rest), HttpWebRequest)
+
+                request.Method = "PUT"
+
+                Dim bytes As Byte() = Text.Encoding.UTF8.GetBytes(postData)
+                request.ContentLength = bytes.Length
+                request.ContentType = "application/json"
+                Using requestStream = request.GetRequestStream()
+
+
+                    requestStream.Write(bytes, 0, bytes.Length)
+
+                    response = DirectCast(request.GetResponse(), HttpWebResponse)
+
+                    success = True
+                End Using
+            Catch ex As WebException
+                count += 1
+                Select Case CType(ex.Response, HttpWebResponse).StatusCode.ToString
+                    Case "500"
+                        count += 1
+                        Trace.TraceWarning("500 error from create entity: attempt " & count)
+                        If count > 5 Then
+                            Throw ex
+                            success = True
+
+                        End If
+
+                    Case "400"
+                        'Bad request
+                        Throw ex
+                    Case "401"
+                        'Bad API key
+                        Throw ex
+                    Case "404"
+                        'not found
+                        Throw ex
+                    Case "304"
+                        'not Modified
+                        Throw ex
+                    Case "301"
+                        'duplicate... try here
+                        Trace.TraceWarning("Entity has been merged with duplicate, please use this new ID ID")
+                    Case "201"
+                        'Create
+
+                    Case "200"
+                        'OK
+
+
+
+                End Select
+
+            End Try
+        End While
+
+        'Dim reader As New IO.StreamReader(response.GetResponseStream())
+        'Dim json = reader.ReadToEnd()
         '  Dim newEntity = CreateEntityFromJsonResp(json)
         ' Return newEntity.ID
 
@@ -1011,7 +1088,7 @@ Public Class GR
         Return rtn
     End Function
 
-    Function ResetAccessToken(Optional ByVal id As String = "") As String
+    Public Function ResetAccessToken(Optional ByVal id As String = "") As String
 
         Dim rest = _grUrl & "systems/reset_access_token?access_token=" & _apikey.ToString
         If Not String.IsNullOrEmpty(id) Then
@@ -1022,9 +1099,9 @@ Public Class GR
         ' request.CookieContainer = myCookieContainer
         request.Method = "Post"
         Dim rtn As String = ""
-     
+
         request.ContentType = "application/json"
-       Dim response As HttpWebResponse = DirectCast(request.GetResponse(), HttpWebResponse)
+        Dim response As HttpWebResponse = DirectCast(request.GetResponse(), HttpWebResponse)
         Using reader As New IO.StreamReader(response.GetResponseStream())
             Dim json = reader.ReadToEnd()
             Dim jss = New Web.Script.Serialization.JavaScriptSerializer()
@@ -1032,14 +1109,14 @@ Public Class GR
 
             If rts.ContainsKey("system") Then
 
-               
+
                 If rts("system").ContainsKey("access_token") Then
                     rtn = rts("system")("access_token")
                 End If
 
 
 
-              
+
 
             End If
             Return rtn
