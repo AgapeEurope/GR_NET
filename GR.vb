@@ -73,7 +73,7 @@ Public Class GR
             extras &= "&filters[category]=" & Category
         End If
         If DefinitionOnly Then
-            extras = "&filters[related_entity_type_id]=" & RelatedEntityId
+            extras = "&per_page=250filters[related_entity_type_id]=" & RelatedEntityId
 
         End If
         Dim typeString = ""
@@ -97,6 +97,7 @@ Public Class GR
             insert.Description = ent("measurement_type")("description")
             insert.Category = ent("measurement_type")("category")
             insert.Frequency = ent("measurement_type")("frequency")
+            insert.Unit = ent("measurement_type")("unit")
             insert.RelatedEntityTypeId = ent("measurement_type")("related_entity_type_id")
             For Each row In ent("measurement_type")("measurements")
                 Dim insertm As New Measurement
@@ -114,6 +115,7 @@ Public Class GR
                 insert.Description = row("description")
                 insert.Category = row("category")
                 insert.Frequency = row("frequency")
+                insert.Unit = row("unit")
                 insert.RelatedEntityTypeId = row("related_entity_type_id")
                 For Each row2 In row("measurements")
                     Dim insertm As New Measurement
@@ -481,7 +483,7 @@ Public Class GR
             Dim newEntity = CreateEntityFromJsonResp(json)
             Return newEntity.ID
         End Using
-      
+
 
 
     End Function
@@ -511,12 +513,12 @@ Public Class GR
                 Return newEntity.ID
             End Using
         End Using
-       
 
 
 
 
-      
+
+
 
 
         'ID's need to be writted back to entity structure
@@ -533,7 +535,7 @@ Public Class GR
             Dim json = reader.ReadToEnd()
             Console.Write(json & vbNewLine & vbNewLine)
         End Using
-       
+
     End Sub
 
     Public Function GetEntity(ByVal ID As String, Optional ByVal AllSystems As Boolean = False) As Entity
@@ -1215,7 +1217,7 @@ Public Class GR
 
             Dim response As HttpWebResponse = DirectCast(request.GetResponse(), HttpWebResponse)
         End Using
-       
+
 
 
         'refresh the local entityType model
