@@ -1,7 +1,7 @@
 ﻿
 
 Imports System.Net
-
+Imports System.Text
 
 ''' <summary>
 ''' The main object in the GR_NET Libarary
@@ -67,6 +67,7 @@ Public Class GR
     Public Function GetMeasurements(ByVal RelatedEntityId As String, ByVal PeriodFrom As String, ByVal PeriodTo As String, Optional ByVal MeasurementTypeId As String = "", Optional Category As String = "", Optional DefinitionOnly As Boolean = False) As List(Of MeasurementType)
 
         Dim web As New WebClient()
+        web.Encoding = Encoding.UTF8
         Dim extras As String = "&filters[period_from]=" & PeriodFrom & "&filters[period_to]=" & PeriodTo & "&filters[related_entity_id]=" & RelatedEntityId
         If Category <> "" Then
             extras &= "&filters[category]=" & Category
@@ -131,11 +132,10 @@ Public Class GR
         Return rtn
     End Function
 
-    
 
+    Private Sub AddMeasurementBatch(ByVal mt As MeasurementType, Optional ByVal Page As Integer = 0)
 
-    Public Sub AddUpdateMeasurement(ByVal mt As MeasurementType)
-        Dim postData = mt.MeasurementsToJson
+        Dim postData = mt.MeasurementsToJson(Page)
 
         Dim rest = _grUrl & "measurements?access_token=" & _apikey.ToString
 
@@ -147,6 +147,7 @@ Public Class GR
 
 
             Try
+
                 Dim request As HttpWebRequest = DirectCast(WebRequest.Create(rest), HttpWebRequest)
 
                 request.Method = "POST"
@@ -154,14 +155,19 @@ Public Class GR
                 Dim bytes As Byte() = Text.Encoding.UTF8.GetBytes(postData)
                 request.ContentLength = bytes.Length
                 request.ContentType = "application/json"
-                Dim requestStream = request.GetRequestStream()
-                requestStream.Write(bytes, 0, bytes.Length)
+                Using requestStream = request.GetRequestStream()
 
-                response = DirectCast(request.GetResponse(), HttpWebResponse)
 
+                    requestStream.Write(bytes, 0, bytes.Length)
+
+                    response = DirectCast(request.GetResponse(), HttpWebResponse)
+                End Using
                 success = True
+                request.Abort()
+                request = Nothing
             Catch ex As WebException
                 count += 1
+
                 Select Case CType(ex.Response, HttpWebResponse).StatusCode.ToString
                     Case "500"
                         count += 1
@@ -199,11 +205,18 @@ Public Class GR
 
             End Try
         End While
+    End Sub
 
-        Dim reader As New IO.StreamReader(response.GetResponseStream())
-        Dim json = reader.ReadToEnd()
-        '  Dim newEntity = CreateEntityFromJsonResp(json)
-        ' Return newEntity.ID
+    Public Sub AddUpdateMeasurement(ByVal mt As MeasurementType)
+        If mt.measurements.Count <= 250 Then
+            AddMeasurementBatch(mt)
+        Else
+            For i As Integer = 0 To CInt(Math.Truncate(mt.measurements.Count / 250))
+                Console.WriteLine("Batch " & i & " of " & CInt(Math.Truncate(mt.measurements.Count / 250)))
+                AddMeasurementBatch(mt, i)
+            Next
+        End If
+
 
     End Sub
 
@@ -211,7 +224,7 @@ Public Class GR
 
 #Region "Public Methods - MeasurementTypes"
 
-    
+
 
 
 
@@ -235,12 +248,15 @@ Public Class GR
                 Dim bytes As Byte() = Text.Encoding.UTF8.GetBytes(postData)
                 request.ContentLength = bytes.Length
                 request.ContentType = "application/json"
-                Dim requestStream = request.GetRequestStream()
-                requestStream.Write(bytes, 0, bytes.Length)
+                Using requestStream = request.GetRequestStream()
 
-                response = DirectCast(request.GetResponse(), HttpWebResponse)
 
-                success = True
+                    requestStream.Write(bytes, 0, bytes.Length)
+
+                    response = DirectCast(request.GetResponse(), HttpWebResponse)
+
+                    success = True
+                End Using
             Catch ex As WebException
                 count += 1
                 Select Case CType(ex.Response, HttpWebResponse).StatusCode.ToString
@@ -302,7 +318,7 @@ Public Class GR
 
     End Sub
 
-    Public Function CreateEntity(ByRef p As Entity, ByVal EntityName As String) As Integer
+    Public Function CreateEntity(ByRef p As Entity, ByVal EntityName As String) As String
         Dim postData = "{""entity"": {""" & EntityName & """:" & p.ToJson & "}}"
         Console.Write(postData & vbNewLine)
         Dim rest = _grUrl & "entities?access_token=" & _apikey.ToString
@@ -323,12 +339,15 @@ Public Class GR
                 Dim bytes As Byte() = Text.Encoding.UTF8.GetBytes(postData)
                 request.ContentLength = bytes.Length
                 request.ContentType = "application/json"
-                Dim requestStream = request.GetRequestStream()
-                requestStream.Write(bytes, 0, bytes.Length)
+                Using requestStream = request.GetRequestStream()
 
-                response = DirectCast(request.GetResponse(), HttpWebResponse)
 
-                success = True
+                    requestStream.Write(bytes, 0, bytes.Length)
+
+                    response = DirectCast(request.GetResponse(), HttpWebResponse)
+
+                    success = True
+                End Using
             Catch ex As WebException
                 Select Case CType(ex.Response, HttpWebResponse).StatusCode.ToString
                     Case "500"
@@ -338,7 +357,7 @@ Public Class GR
                         If count > 5 Then
                             success = True
                             Throw ex
-                          
+
                         End If
 
                     Case "400"
@@ -376,19 +395,21 @@ Public Class GR
                         End If
 
                 End Select
-                
+
             End Try
         End While
 
-        Dim reader As New IO.StreamReader(response.GetResponseStream())
-        Dim json = reader.ReadToEnd()
-        Dim newEntity = CreateEntityFromJsonResp(json)
-        Return newEntity.ID
+        Using reader As New IO.StreamReader(response.GetResponseStream())
+            Dim json = reader.ReadToEnd()
+            Dim newEntity = CreateEntityFromJsonResp(json)
+            Return newEntity.ID
+        End Using
+      
 
 
     End Function
 
-    Public Function UpdateEntity(ByRef p As Entity, ByVal EntityName As String) As Integer
+    Public Function UpdateEntity(ByRef p As Entity, ByVal EntityName As String) As String
         If Not p.HasValues Then
             Return p.ID
         End If
@@ -403,18 +424,23 @@ Public Class GR
         Dim bytes As Byte() = Text.Encoding.UTF8.GetBytes(postData)
         request.ContentLength = bytes.Length
         request.ContentType = "application/json"
-        Dim requestStream = request.GetRequestStream()
-        requestStream.Write(bytes, 0, bytes.Length)
+        Using requestStream = request.GetRequestStream()
+            requestStream.Write(bytes, 0, bytes.Length)
+            Dim response As HttpWebResponse = DirectCast(request.GetResponse(), HttpWebResponse)
+            Using reader As New IO.StreamReader(response.GetResponseStream())
+                Dim json = reader.ReadToEnd()
+                Trace.WriteLine("from-update:" & json)
+                Dim newEntity = CreateEntityFromJsonResp(json)
+                Return newEntity.ID
+            End Using
+        End Using
+       
 
 
 
-        Dim response As HttpWebResponse = DirectCast(request.GetResponse(), HttpWebResponse)
 
-        Dim reader As New IO.StreamReader(response.GetResponseStream())
-        Dim json = reader.ReadToEnd()
-        Trace.WriteLine("from-update:" & json)
-        Dim newEntity = CreateEntityFromJsonResp(json)
-        Return newEntity.ID
+      
+
 
         'ID's need to be writted back to entity structure
     End Function
@@ -426,13 +452,16 @@ Public Class GR
         request.Method = "DELETE"
         Dim response As HttpWebResponse = DirectCast(request.GetResponse(), HttpWebResponse)
 
-        Dim reader As New IO.StreamReader(response.GetResponseStream())
-        Dim json = reader.ReadToEnd()
-        Console.Write(json & vbNewLine & vbNewLine)
+        Using reader As New IO.StreamReader(response.GetResponseStream())
+            Dim json = reader.ReadToEnd()
+            Console.Write(json & vbNewLine & vbNewLine)
+        End Using
+       
     End Sub
 
     Public Function GetEntity(ByVal ID As String, Optional ByVal AllSystems As Boolean = False) As Entity
         Dim web As New WebClient()
+        web.Encoding = Encoding.UTF8
         Dim extras As String = ""
         If AllSystems Then
             extras = "&created_by=all"
@@ -445,6 +474,7 @@ Public Class GR
     End Function
     Public Function GetEntities(ByVal EntityType As String, ByVal Filters As String, Optional ByVal Page As Integer = 0, Optional ByVal PerPage As Integer = 0, Optional ByRef TotalPage As Integer = 0) As List(Of Entity)
         Dim web As New WebClient()
+        web.Encoding = Encoding.UTF8
 
         Dim json = web.DownloadString(_grUrl & "entities?access_token=" & _apikey.ToString & "&entity_type=" & EntityType & Filters & CreatePageString(Page, PerPage))
         TotalPage = GetTotalPagesFromJson(json)
@@ -454,8 +484,66 @@ Public Class GR
 
 
     End Function
+    Public Sub addNewRelationshipType(ByVal entity_type1 As String, ByVal entity_type2 As String, ByVal relationship1 As String, ByVal relationship2 As String)
+        Dim postData = "{""relationship_type"": {""entity_type1_id"":""" & entity_type1 & """, ""entity_type2_id"":""" & entity_type2 & """,""relationship1"":""" & relationship1 & """,""relationship2"":""" & relationship2 & """ }}"
 
-    Public Sub RelateEntity(ByVal EntityType1 As String, ByVal Id1 As String, ByVal EntityType2 As String, ByVal Id2 As String, ByVal RelationshipType As String, Optional Role As String = "")
+        Dim rest = _grUrl & "relationship_types?access_token=" & _apikey.ToString
+        Dim request As HttpWebRequest = DirectCast(WebRequest.Create(rest), HttpWebRequest)
+        ' request.CookieContainer = myCookieContainer
+        request.Method = "POST"
+
+        Dim bytes As Byte() = Text.Encoding.UTF8.GetBytes(postData)
+        request.ContentLength = bytes.Length
+        request.ContentType = "application/json"
+        Using requestStream = request.GetRequestStream()
+
+
+            requestStream.Write(bytes, 0, bytes.Length)
+
+
+
+            Dim response As HttpWebResponse = DirectCast(request.GetResponse(), HttpWebResponse)
+
+            ' Dim reader As New IO.StreamReader(response.GetResponseStream())
+            'Dim json = reader.ReadToEnd()
+
+            'refresh the local entityType model
+            'GetEntityTypeDefFromGR()
+        End Using
+
+    End Sub
+
+
+    Public Sub editRelationshipType(ByVal relationship_id As String, ByVal entity_type1 As String, ByVal entity_type2 As String, ByVal relationship1 As String, ByVal relationship2 As String)
+        Dim postData = "{""relationship_type"": {""entity_type1_id"":""" & entity_type1 & """, ""entity_type2_id"":""" & entity_type2 & """,""relationship1"":""" & relationship1 & """,""relationship2"":""" & relationship2 & """ }}"
+
+        Dim rest = _grUrl & "relationship_types/" & relationship_id & "?access_token=" & _apikey.ToString
+        Dim request As HttpWebRequest = DirectCast(WebRequest.Create(rest), HttpWebRequest)
+        ' request.CookieContainer = myCookieContainer
+        request.Method = "PUT"
+
+        Dim bytes As Byte() = Text.Encoding.UTF8.GetBytes(postData)
+        request.ContentLength = bytes.Length
+        request.ContentType = "application/json"
+        Using requestStream = request.GetRequestStream()
+
+
+            requestStream.Write(bytes, 0, bytes.Length)
+
+
+
+            Dim response As HttpWebResponse = DirectCast(request.GetResponse(), HttpWebResponse)
+
+            ' Dim reader As New IO.StreamReader(response.GetResponseStream())
+            'Dim json = reader.ReadToEnd()
+
+            'refresh the local entityType model
+            'GetEntityTypeDefFromGR()
+        End Using
+
+    End Sub
+
+    Public Function RelateEntity(ByVal EntityType1 As String, ByVal Id1 As String, ByVal EntityType2 As String, ByVal Id2 As String, ByVal RelationshipType As String, Optional Role As String = "") As Entity
         Dim r As String = ""
         If Not Role = "" Then
             r = ",""role"": """ & Role & """"
@@ -472,21 +560,28 @@ Public Class GR
         Dim bytes As Byte() = Text.Encoding.UTF8.GetBytes(postData)
         request.ContentLength = bytes.Length
         request.ContentType = "application/json"
-        Dim requestStream = request.GetRequestStream()
-        requestStream.Write(bytes, 0, bytes.Length)
+        Using requestStream = request.GetRequestStream()
+
+
+            requestStream.Write(bytes, 0, bytes.Length)
 
 
 
-        Dim response As HttpWebResponse = DirectCast(request.GetResponse(), HttpWebResponse)
+            Dim response As HttpWebResponse = DirectCast(request.GetResponse(), HttpWebResponse)
 
-        Dim reader As New IO.StreamReader(response.GetResponseStream())
-        Dim json = reader.ReadToEnd()
-        Trace.WriteLine("from-update:" & json)
-        Dim newEntity = CreateEntityFromJsonResp(json)
+            Using reader As New IO.StreamReader(response.GetResponseStream())
 
-    End Sub
+
+                Dim json = reader.ReadToEnd()
+                Trace.WriteLine("from-update:" & json)
+                Dim newEntity = CreateEntityFromJsonResp(json)
+            End Using
+        End Using
+        Return New Entity
+    End Function
     Public Function GetRelationshipsForEntityType(ByVal entity_type_id As String) As List(Of RelationshipType)
         Dim web As New WebClient()
+        web.Encoding = Encoding.UTF8
 
         Dim json = web.DownloadString(_grUrl & "relationship_types?access_token=" & _apikey.ToString & "&filters[involving]=" & entity_type_id)
         Dim jss = New Web.Script.Serialization.JavaScriptSerializer()
@@ -496,10 +591,10 @@ Public Class GR
             For Each row In rts("relationship_types")
                 Dim insert As New RelationshipType
                 insert.ID = row("id")
-                insert.Relationship1 = row("relationship1")
-                insert.Relationship2 = row("relationship2")
-                insert.EntityType1 = GetEntityType(row("entity_type1_id"))
-                insert.EntityType2 = GetEntityType(row("entity_type2_id"))
+                insert.Relationship1 = row("relationship1")("relationship_name")
+                insert.Relationship2 = row("relationship2")("relationship_name")
+                insert.EntityType1 = entity_types_def.Where(Function(c) c.Name = row("relationship1")("entity_type")).FirstOrDefault
+                insert.EntityType2 = entity_types_def.Where(Function(c) c.Name = row("relationship2")("entity_type")).FirstOrDefault
 
 
                 rtn.Add(insert)
@@ -573,9 +668,17 @@ Public Class GR
     ''' <returns>A Flat list of all EntityTypes</returns>
     ''' <remarks>Note Each entity type has a GetDotNotation function - which allows you to populate a list of enitities in DotNotation(eg person.address.city) </remarks>
     Public Function GetFlatEntityLeafList(ByVal rootEntity As String, Optional type As String = Nothing) As List(Of EntityType)
-        Dim root = _entity_types_def.Where(Function(c) c.Name = rootEntity).First
         Dim FlatList As New List(Of EntityType)
-        root.GetDecendents(FlatList, type)
+        If String.IsNullOrEmpty(rootEntity) Then
+            For Each row In _entity_types_def
+                row.GetDecendents(FlatList, type)
+            Next
+        Else
+            Dim root = _entity_types_def.Where(Function(c) c.Name = rootEntity).First
+
+            root.GetDecendents(FlatList, type)
+        End If
+
         Return FlatList
 
     End Function
@@ -624,15 +727,16 @@ Public Class GR
         Dim mycache As CredentialCache = New CredentialCache()
 
         Dim web As New WebClient()
+        web.Encoding = Encoding.UTF8
         web.Credentials = mycache
         Dim rest = _grUrl & method & "?access_token=" & _apikey.ToString & "&" & method & "&" & filter
         Return web.DownloadString(rest)
 
     End Function
 
-    Public Sub CreateEntityType(ByVal Name As String, ByVal ParentId As String, ByVal type As String)
+    Public Sub CreateEntityType(ByVal Name As String, ByVal ParentId As String, ByVal type As String, Optional ByVal Description As String = "")
 
-        Dim postData = "{""entity_type"": {""name"":""" & Name & """, ""field_type"":""" & type & """,""parent_id"":""" & IIf(ParentId = Nothing, "null", ParentId) & """}}"
+        Dim postData = "{""entity_type"": {""name"":""" & Name & """, ""field_type"":""" & type & """" & IIf(String.IsNullOrEmpty(ParentId) Or ParentId = "null", "", ",""parent_id"":""" & ParentId & """") & IIf(String.IsNullOrEmpty(Description), "", ",""description"":""" & Description & """") & "}}"
 
         Dim rest = _grUrl & "entity_types?access_token=" & _apikey.ToString
         Dim request As HttpWebRequest = DirectCast(WebRequest.Create(rest), HttpWebRequest)
@@ -642,20 +746,54 @@ Public Class GR
         Dim bytes As Byte() = Text.Encoding.UTF8.GetBytes(postData)
         request.ContentLength = bytes.Length
         request.ContentType = "application/json"
-        Dim requestStream = request.GetRequestStream()
-        requestStream.Write(bytes, 0, bytes.Length)
+        Using requestStream = request.GetRequestStream()
+
+
+            requestStream.Write(bytes, 0, bytes.Length)
 
 
 
-        Dim response As HttpWebResponse = DirectCast(request.GetResponse(), HttpWebResponse)
+            Dim response As HttpWebResponse = DirectCast(request.GetResponse(), HttpWebResponse)
 
-        Dim reader As New IO.StreamReader(response.GetResponseStream())
-        Dim json = reader.ReadToEnd()
+            Using reader As New IO.StreamReader(response.GetResponseStream())
+                Dim json = reader.ReadToEnd()
 
+                'refresh the local entityType model
+
+            End Using
+        End Using
+        GetEntityTypeDefFromGR()
+    End Sub
+    Public Sub UpdateEntityType(ByVal EntityTypeId As String, ByVal Name As String, ByVal ParentId As String, ByVal type As String, Optional ByVal Description As String = "")
+
+        Dim postData = "{""entity_type"": {""name"":""" & Name & """, ""field_type"":""" & type & """" & IIf(String.IsNullOrEmpty(ParentId) Or ParentId = "null", "", ",""parent_id"":""" & ParentId & """") & IIf(String.IsNullOrEmpty(Description), "", ",""description"":""" & Description & """") & "}}"
+
+
+        Dim rest = _grUrl & "entity_types/" & EntityTypeId & "?access_token=" & _apikey.ToString
+        Dim request As HttpWebRequest = DirectCast(WebRequest.Create(rest), HttpWebRequest)
+        ' request.CookieContainer = myCookieContainer
+        request.Method = "PUT"
+
+        Dim bytes As Byte() = Text.Encoding.UTF8.GetBytes(postData)
+        request.ContentLength = bytes.Length
+        request.ContentType = "application/json"
+        Using requestStream = request.GetRequestStream()
+
+
+            requestStream.Write(bytes, 0, bytes.Length)
+
+
+
+            Dim response As HttpWebResponse = DirectCast(request.GetResponse(), HttpWebResponse)
+
+            Using reader As New IO.StreamReader(response.GetResponseStream())
+                Dim json = reader.ReadToEnd()
+            End Using
+
+        End Using
         'refresh the local entityType model
         GetEntityTypeDefFromGR()
     End Sub
-
 
     Private Sub GetEntityTypeDefFromGR()
         'Make REST CAll
@@ -663,6 +801,7 @@ Public Class GR
         Dim mycache As CredentialCache = New CredentialCache()
 
         Dim web As New WebClient()
+        web.Encoding = Encoding.UTF8
         web.Credentials = mycache
 
         Dim json = web.DownloadString(_grUrl & "entity_types?access_token=" & _apikey.ToString)
@@ -689,6 +828,15 @@ Public Class GR
         Dim insert As New EntityType(input("name"), input("id"), Parent)
         If input.ContainsKey("field_type") Then
             insert.Field_Type = input("field_type")
+        End If
+        If input.ContainsKey("description") Then
+            insert.Description = input("description")
+        End If
+        If input.ContainsKey("enum_values") Then
+
+            insert.EnumValues = CType(input("enum_values"), ArrayList).ToArray(GetType(String))
+
+
         End If
 
         If input.ContainsKey("fields") Then
@@ -825,6 +973,179 @@ Public Class GR
 
 
 
+#Region "System Methods"
+    Public Function GetSystems() As List(Of grSystem)
+        Dim web As New WebClient()
+        web.Encoding = Encoding.UTF8
+
+
+
+        Dim json = web.DownloadString(_grUrl & "systems?access_token=" & _apikey.ToString)
+
+        Dim jss = New Web.Script.Serialization.JavaScriptSerializer()
+        Dim rts = jss.Deserialize(Of Dictionary(Of String, List(Of Dictionary(Of String, Object))))(json)
+        Dim rtn As New List(Of grSystem)
+        If rts.ContainsKey("systems") Then
+            For Each row In rts("systems")
+                Dim insert As New grSystem
+                insert.ID = row("id")
+                insert.Name = row("name")
+                If row.ContainsKey("root") Then
+                    insert.IsRoot = row("root")
+                End If
+                If row.ContainsKey("access_token") Then
+                    insert.AccessToken = row("access_token")
+                End If
+
+
+
+                rtn.Add(insert)
+
+
+
+            Next
+        End If
+
+
+
+        Return rtn
+    End Function
+
+    Function ResetAccessToken(Optional ByVal id As String = "") As String
+
+        Dim rest = _grUrl & "systems/reset_access_token?access_token=" & _apikey.ToString
+        If Not String.IsNullOrEmpty(id) Then
+            rest &= "&id=" & id
+        End If
+
+        Dim request As HttpWebRequest = DirectCast(WebRequest.Create(rest), HttpWebRequest)
+        ' request.CookieContainer = myCookieContainer
+        request.Method = "Post"
+        Dim rtn As String = ""
+     
+        request.ContentType = "application/json"
+       Dim response As HttpWebResponse = DirectCast(request.GetResponse(), HttpWebResponse)
+        Using reader As New IO.StreamReader(response.GetResponseStream())
+            Dim json = reader.ReadToEnd()
+            Dim jss = New Web.Script.Serialization.JavaScriptSerializer()
+            Dim rts = jss.Deserialize(Of Dictionary(Of String, Dictionary(Of String, Object)))(json)
+
+            If rts.ContainsKey("system") Then
+
+               
+                If rts("system").ContainsKey("access_token") Then
+                    rtn = rts("system")("access_token")
+                End If
+
+
+
+              
+
+            End If
+            Return rtn
+        End Using
+    End Function
+
+    Public Shared Function GetSystems(ByVal root_key As String, ByVal grUrl As String) As List(Of grSystem)
+        Dim web As New WebClient()
+        web.Encoding = Encoding.UTF8
+
+        Dim rtn As New List(Of grSystem)
+        Try
+
+
+            Dim json = web.DownloadString(grUrl & "systems?access_token=" & root_key)
+
+            Dim jss = New Web.Script.Serialization.JavaScriptSerializer()
+            Dim rts = jss.Deserialize(Of Dictionary(Of String, List(Of Dictionary(Of String, Object))))(json)
+
+            If rts.ContainsKey("systems") Then
+                For Each row In rts("systems")
+                    Dim insert As New grSystem
+                    insert.ID = row("id")
+                    insert.Name = row("name")
+                    If row.ContainsKey("root") Then
+                        insert.IsRoot = row("root")
+                    End If
+                    If row.ContainsKey("access_token") Then
+                        insert.AccessToken = row("access_token")
+                    End If
+
+
+
+                    rtn.Add(insert)
+
+
+
+                Next
+            End If
+
+        Catch ex As Exception
+
+        End Try
+
+        Return rtn
+    End Function
+    Public Shared Function GetSystem(ByVal grUrl As String, ByVal target_api_key As String, root_api_key As String) As grSystem
+
+        Return GetSystems(root_api_key, grUrl).Where(Function(c) c.AccessToken = target_api_key).FirstOrDefault
+
+    End Function
+
+    Public Sub EditSystemRoot(ByVal id As String, ByVal makeRoot As Boolean)
+        Dim postData = "{""system"": {""root"":" & makeRoot.ToString.ToLower & "}}"
+
+
+
+        Dim rest = _grUrl & "systems/" & id & "?access_token=" & _apikey.ToString
+        Dim request As HttpWebRequest = DirectCast(WebRequest.Create(rest), HttpWebRequest)
+        ' request.CookieContainer = myCookieContainer
+        request.Method = "PUT"
+
+        Dim bytes As Byte() = Text.Encoding.UTF8.GetBytes(postData)
+        request.ContentLength = bytes.Length
+        request.ContentType = "application/json"
+        Using requestStream = request.GetRequestStream()
+
+
+            requestStream.Write(bytes, 0, bytes.Length)
+
+
+
+            Dim response As HttpWebResponse = DirectCast(request.GetResponse(), HttpWebResponse)
+
+        End Using
+        'refresh the local entityType model
+
+    End Sub
+
+    Public Sub CreateSystem(ByVal name As String)
+        Dim postData = "{""system"": {""name"":""" & name & """}}"
+
+
+        Dim rest = _grUrl & "systems?access_token=" & _apikey.ToString
+        Dim request As HttpWebRequest = DirectCast(WebRequest.Create(rest), HttpWebRequest)
+        ' request.CookieContainer = myCookieContainer
+        request.Method = "POST"
+
+        Dim bytes As Byte() = Text.Encoding.UTF8.GetBytes(postData)
+        request.ContentLength = bytes.Length
+        request.ContentType = "application/json"
+        Using requestStream = request.GetRequestStream()
+            requestStream.Write(bytes, 0, bytes.Length)
+
+
+
+            Dim response As HttpWebResponse = DirectCast(request.GetResponse(), HttpWebResponse)
+        End Using
+       
+
+
+        'refresh the local entityType model
+
+    End Sub
+
+#End Region
 
 
 

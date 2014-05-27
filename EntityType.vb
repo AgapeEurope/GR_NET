@@ -29,6 +29,17 @@ Public Class EntityType
         End Set
     End Property
 
+    Private _description As String
+    Public Property Description() As String
+        Get
+            Return _description
+        End Get
+        Set(ByVal value As String)
+            _description = value
+        End Set
+    End Property
+
+
     Private _field_type As String
     Public Property Field_Type() As String
         Get
@@ -36,6 +47,15 @@ Public Class EntityType
         End Get
         Set(ByVal value As String)
             _field_type = value
+        End Set
+    End Property
+    Private _enumValues As String()
+    Public Property EnumValues() As String()
+        Get
+            Return _enumValues
+        End Get
+        Set(ByVal value As String())
+            _enumValues = value
         End Set
     End Property
 

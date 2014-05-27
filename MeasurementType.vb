@@ -69,7 +69,7 @@
     End Property
 
     Public measurements As New List(Of Measurement)
-    Public Sub addMeasurement(ByVal RelatedEntityId As Integer, ByVal Period As String, ByVal Value As Double)
+    Public Sub addMeasurement(ByVal RelatedEntityId As String, ByVal Period As String, ByVal Value As Double)
         Dim existing = measurements.Where(Function(c As Measurement) c.Period = Period And c.RelatedEntityId = RelatedEntityId)
         If existing.Count = 0 Then
             Dim m As New Measurement()
@@ -83,15 +83,26 @@
     End Sub
 
 
-    Public Function MeasurementsToJson() As String
-        Dim rtn = "{""measurements"": ["
+    Public Function MeasurementsToJson(Optional page As Integer = 0) As String
 
-        For Each row In measurements
-            rtn &= "{""measurement_type_id"":" & ID & "," _
-                & """related_entity_id"":" & row.RelatedEntityId & "," _
-         & """period"": """ & row.Period & """," _
-         & """value"": """ & row.Value & """},"
-        Next
+        Dim rtn = "{""measurements"": ["
+        If page = 0 Then
+
+
+            For Each row In measurements
+                rtn &= "{""measurement_type_id"":""" & ID & """," _
+                    & """related_entity_id"":""" & row.RelatedEntityId & """," _
+             & """period"": """ & row.Period & """," _
+             & """value"": """ & row.Value & """},"
+            Next
+        Else
+            For Each row In measurements.Skip(250 * page).Take(250)
+                rtn &= "{""measurement_type_id"":""" & ID & """," _
+                    & """related_entity_id"":""" & row.RelatedEntityId & """," _
+             & """period"": """ & row.Period & """," _
+             & """value"": """ & row.Value & """},"
+            Next
+        End If
         rtn = rtn.TrimEnd(",")
         rtn &= "]}"
         Return rtn
@@ -102,7 +113,8 @@
         AddTag(rtn, "description", Description)
         AddTag(rtn, "frequency", Frequency)
         AddTag(rtn, "category", Category)
-        AddTag(rtn, "relationhip_type_id", RelatedEntityTypeId, False)
+        AddTag(rtn, "unit", Unit)
+        AddTag(rtn, "related_entity_type_id", RelatedEntityTypeId, False)
 
         rtn = rtn.TrimEnd(",")
 

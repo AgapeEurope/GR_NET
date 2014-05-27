@@ -75,6 +75,7 @@
     <Compile Include="Entity.vb" />
     <Compile Include="EntityType.vb" />
     <Compile Include="GR.vb" />
+    <Compile Include="grSystem.vb" />
     <Compile Include="Measurement.vb" />
     <Compile Include="MeasurementType.vb" />
     <Compile Include="My Project\AssemblyInfo.vb" />

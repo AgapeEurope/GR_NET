@@ -13,7 +13,7 @@ Public Class FieldType
     Public Shared _text As String = "text"
     Public Shared _datetime As String = "datatime"
     Public Shared _float As String = "float"
-    Public Shared type_list = {"entity", "string", "integer", "boolean", "date", "enum", "text", "datetime", "float"} ' the list of valid FieldTypes
+    Public Shared type_list = {"entity", "string", "integer", "boolean", "date", "enum", "text", "datetime", "float", "enum_values", "uuid"} ' the list of valid FieldTypes
 
     ''' <summary>
     ''' Checks if a FieldType is valid

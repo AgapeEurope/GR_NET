@@ -42,7 +42,8 @@ Public Class Entity
 
 
             End If
-
+        ElseIf collections.ContainsKey(Key) Then
+            Return collections(Key).GroupBy(Function(n) n.GetPropertyValue("value")).OrderByDescending(Function(g) g.Count).Select(Function(g) g.Key).FirstOrDefault
         End If
         Return ""
     End Function
