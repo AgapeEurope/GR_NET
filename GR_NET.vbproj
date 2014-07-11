@@ -95,6 +95,7 @@
     </Compile>
     <Compile Include="People.vb" />
     <Compile Include="RelationshipType.vb" />
+    <Compile Include="Subscription.vb" />
   </ItemGroup>
   <ItemGroup>
     <EmbeddedResource Include="My Project\Resources.resx">

@@ -17,6 +17,15 @@ Public Class Entity
     End Property
 
 
+    Private _entity_type As String
+    Public Property EntityType() As String
+        Get
+            Return _entity_type
+        End Get
+        Set(ByVal value As String)
+            _entity_type = value
+        End Set
+    End Property
 
 
     'profileproperties is a Dictionary (key/value pair) of attributes for this entity
@@ -151,7 +160,7 @@ Public Class Entity
             If row.Value.Count > 1 Then
                 json &= "["
                 For Each row2 In row.Value
-                    json &= row.Value.First.ToJson() & ","
+                    json &= row2.ToJson() & ","
                 Next
                 json = json.TrimEnd(",")
                 json &= "]"
