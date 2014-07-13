@@ -611,9 +611,9 @@ Public Class GR
             r = ",""role"": """ & Role & """"
         End If
         Dim cr As String = ""
-        If Not cr = "" Then
-            cr = ",""client_integration_id"": """ & ClientIntegrationId1 & "_" & Client_Integration_Id2 & """"
-        End If
+        ' If Not Client_Integration_Id2 = "" Then
+        cr = ",""client_integration_id"": """ & ClientIntegrationId1 & "_" & Client_Integration_Id2 & """"
+        ' End If
         Dim cid As String = ""
         If Not ClientIntegrationId1 = "" Then
             cid = """client_integration_id"": """ & ClientIntegrationId1 & """, "
