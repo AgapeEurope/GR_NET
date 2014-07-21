@@ -187,6 +187,7 @@ Public Class GR
                 insertm.Period = row("period")
                 insertm.Value = row("value")
                 insertm.RelatedEntityId = row("related_entity_id")
+                insertm.MeasurementTypeId = insert.ID
                 insertm.ID = row("id")
                 insert.measurements.Add(insertm)
             Next
@@ -207,6 +208,7 @@ Public Class GR
                     insertm.Period = row2("period")
                     insertm.Value = row2("value")
                     insertm.RelatedEntityId = row2("related_entity_id")
+                    insertm.MeasurementTypeId = insert.ID
                     insertm.ID = row2("id")
                     insert.measurements.Add(insertm)
                 Next
@@ -258,6 +260,10 @@ Public Class GR
     End Sub
 
     Public Sub AddUpdateMeasurement(ByVal mt As MeasurementType)
+        If mt.measurements.Count = 0 Then
+            'nothing to do
+            Return
+        End If
         If mt.measurements.Count <= 250 Then
             AddMeasurementBatch(mt)
         Else
@@ -468,6 +474,7 @@ Public Class GR
     Public Function GetEntities(ByVal EntityType As String, ByVal Filters As String, Optional ByVal Page As Integer = 0, Optional ByVal PerPage As Integer = 0, Optional ByRef TotalPage As Integer = 0) As List(Of Entity)
         Dim web As New WebClient()
         web.Encoding = Encoding.UTF8
+        Dim url = _grUrl & "entities?access_token=" & _apikey.ToString & "&entity_type=" & EntityType & Filters & CreatePageString(Page, PerPage)
 
         Dim json = web.DownloadString(_grUrl & "entities?access_token=" & _apikey.ToString & "&entity_type=" & EntityType & Filters & CreatePageString(Page, PerPage))
         TotalPage = GetTotalPagesFromJson(json)

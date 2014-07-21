@@ -68,7 +68,7 @@ Public Class Entity
     ''' <param name="Value">The value of this property (eg London)</param>
     ''' <remarks></remarks>
     Public Sub AddPropertyValue(ByVal Key As String, ByVal Value As String)
-        If Value Is Nothing Then
+        If String.IsNullOrEmpty(Value) Then
             Return
         End If
         If Key = "id" Then

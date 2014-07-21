@@ -38,5 +38,16 @@
         End Set
     End Property
 
+    Private _measurementTypeId As String
+    Public Property MeasurementTypeId() As String
+        Get
+            Return _measurementTypeId
+        End Get
+        Set(ByVal value As String)
+            _measurementTypeId = value
+        End Set
+    End Property
+
+
 
 End Class
