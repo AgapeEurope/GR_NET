@@ -552,21 +552,23 @@ Public Class GR
         If Not ClientIntegrationId1 = "" Then
             cid = """client_integration_id"": """ & ClientIntegrationId1 & """, "
         End If
-        Dim rel = Entity.collections.Where(Function(c) c.Key = RelationshipType & ":relationship").ToArray
+        '  Dim rel = Entity.collections.Where(Function(c) c.Key = RelationshipType & ":relationship").ToArray
         Entity.profileProperties.Clear()
         Entity.collections.Clear()
         Entity.collections.Add(RelationshipType & ":relationship", New List(Of Entity))
-        If rel.Count > 0 Then
-            For Each row In rel.First.Value
+        'If rel.Count > 0 Then
+        '    For Each row In rel.First.Value
 
-                Dim ins As New Entity()
+        '        Dim ins As New Entity()
 
 
-                ins.AddPropertyValue(EntityType2, row.GetPropertyValue(EntityType2))
-                Entity.collections(RelationshipType & ":relationship").Add(ins)
+        '        ins.AddPropertyValue(EntityType2, row.GetPropertyValue(EntityType2))
 
-            Next
-        End If
+        '        ins.AddPropertyValue("client_integration_id", )
+        '        Entity.collections(RelationshipType & ":relationship").Add(ins)
+
+        '    Next
+        'End If
 
 
 
@@ -907,7 +909,7 @@ Public Class GR
         Dim insert As New EntityType(input("name"), input("id"), Parent)
         If input.ContainsKey("field_type") Then
             insert.Field_Type = input("field_type")
-            
+
         End If
         If input.ContainsKey("description") Then
             insert.Description = input("description")
@@ -925,7 +927,7 @@ Public Class GR
 
                 addSubEntityTypes(row, insert)
             Next
-                Dim cid = New EntityType("client_integration_id", "", insert)
+            Dim cid = New EntityType("client_integration_id", "", insert)
 
 
 
@@ -1015,42 +1017,44 @@ Public Class GR
         If dot <> "" Then
             dot &= "."
         End If
-
-        Dim t As String = input.GetType.Name
-        If t.Contains("Dictionary") Then
-            For Each row2 In CType(input, Dictionary(Of String, Object))
-                ProcessJsonEntity(row2.Value, dot & row2.Key, person_dict)
-            Next
+        If Not input Is Nothing Then
 
 
-        ElseIf t.Contains("List") Then
-            Dim i As Integer = 0
-            For Each row2 In CType(input, ArrayList)
-                Dim t2 As String = row2.GetType().Name
-                If (t2 = "String") Then
-                    person_dict.Add(dot.TrimEnd(".") & "[" & i & "]", row2)
-                ElseIf t2.Contains("Dictionary") Then
-                    For Each row3 In CType(row2, Dictionary(Of String, Object))
-                        ProcessJsonEntity(row3.Value, dot.TrimEnd(".") & "[" & i & "]." & row3.Key, person_dict)
-                    Next
-                Else
+            Dim t As String = input.GetType.Name
+            If t.Contains("Dictionary") Then
+                For Each row2 In CType(input, Dictionary(Of String, Object))
+                    ProcessJsonEntity(row2.Value, dot & row2.Key, person_dict)
+                Next
 
 
-                    ProcessJsonEntity(row2.Value, dot.TrimEnd(".") & "[" & i & "]", person_dict)
-                End If
+            ElseIf t.Contains("List") Then
+                Dim i As Integer = 0
+                For Each row2 In CType(input, ArrayList)
+                    Dim t2 As String = row2.GetType().Name
+                    If (t2 = "String") Then
+                        person_dict.Add(dot.TrimEnd(".") & "[" & i & "]", row2)
+                    ElseIf t2.Contains("Dictionary") Then
+                        For Each row3 In CType(row2, Dictionary(Of String, Object))
+                            ProcessJsonEntity(row3.Value, dot.TrimEnd(".") & "[" & i & "]." & row3.Key, person_dict)
+                        Next
+                    Else
 
-                i += 1
-            Next
+
+                        ProcessJsonEntity(row2.Value, dot.TrimEnd(".") & "[" & i & "]", person_dict)
+                    End If
+
+                    i += 1
+                Next
 
 
 
 
 
-        ElseIf Not t.Contains("Collection") Then
-            person_dict.Add(dot.TrimEnd("."), input)
+            ElseIf Not t.Contains("Collection") Then
+                person_dict.Add(dot.TrimEnd("."), input)
+            End If
+
         End If
-
-
 
     End Sub
 
@@ -1114,6 +1118,7 @@ Public Class GR
         Dim rtn As String = ""
 
         request.ContentType = "application/json"
+        request.ContentLength = 0
         Dim response As HttpWebResponse = DirectCast(request.GetResponse(), HttpWebResponse)
         Using reader As New IO.StreamReader(response.GetResponseStream())
             Dim json = reader.ReadToEnd()
