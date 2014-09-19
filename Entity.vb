@@ -145,7 +145,7 @@ Public Class Entity
             If row.Value.Count > 1 Then
                 json &= """" & row.Key & """: ["
                 For Each row2 In row.Value
-                    json &= "{""" & row2 & """},"
+                    json &= """" & row2 & ""","
                 Next
                 json = json.TrimEnd(",")
                 json &= "],"

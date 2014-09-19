@@ -93,7 +93,7 @@ Public Class GR
         Dim rest = _grUrl & "subscriptions/" & SubscriptionId & "?access_token=" & _apikey.ToString
         Dim response As HttpWebResponse
         Dim request As HttpWebRequest = DirectCast(WebRequest.Create(rest), HttpWebRequest)
-
+        request.Proxy = Nothing
         request.Method = "DELETE"
         response = DirectCast(request.GetResponse(), HttpWebResponse)
 
@@ -112,7 +112,7 @@ Public Class GR
         Dim response As HttpWebResponse
 
         Dim request As HttpWebRequest = DirectCast(WebRequest.Create(rest), HttpWebRequest)
-
+        request.Proxy = Nothing
         request.Method = "POST"
 
         Dim bytes As Byte() = Text.Encoding.UTF8.GetBytes(postData)
@@ -139,7 +139,7 @@ Public Class GR
         Dim rest = _grUrl & "measurements/" & MeasurementId & "?access_token=" & _apikey.ToString
         Dim response As HttpWebResponse
         Dim request As HttpWebRequest = DirectCast(WebRequest.Create(rest), HttpWebRequest)
-
+        request.Proxy = Nothing
         request.Method = "DELETE"
         response = DirectCast(request.GetResponse(), HttpWebResponse)
 
@@ -147,17 +147,114 @@ Public Class GR
         request.Abort()
         request = Nothing
     End Sub
+
+
+    Public Async Function GetMeasurementsAsync(ByVal RelatedEntityId As String, ByVal PeriodFrom As String, ByVal PeriodTo As String, Optional ByVal MeasurementTypeId As String = "", Optional Category As String = "", Optional DefinitionOnly As Boolean = False, Optional filters As String = "") As Task(Of List(Of MeasurementType))
+
+        ' Dim web As New WebClient()
+        'web.Encoding = Encoding.UTF8
+        Dim extras As String = "&filters[period_from]=" & PeriodFrom & "&filters[period_to]=" & PeriodTo & IIf(RelatedEntityId = "", "", "&filters[related_entity_id]=" & RelatedEntityId) & filters
+       
+        If DefinitionOnly Then
+            extras = "&per_page=250&filters[related_entity_type_id]=" & RelatedEntityId
+
+        End If
+        If Category <> "" Then
+            extras &= "&filters[category]=" & Category
+        End If
+        Dim typeString = "measurement_types"
+        If MeasurementTypeId <> "" Then
+            typeString = "measurement_types/" & MeasurementTypeId
+        End If
+
+        Dim Json As String = ""
+
+
+        Dim request As HttpWebRequest = DirectCast(WebRequest.Create(_grUrl & typeString & "?access_token=" & _apikey.ToString & extras), HttpWebRequest)
+        request.Proxy = Nothing
+        Using response As WebResponse = Await request.GetResponseAsync()
+            Using reader As New IO.StreamReader(response.GetResponseStream())
+                json = reader.ReadToEnd()
+                
+            End Using
+        End Using
+
+
+
+
+
+        '   Dim json = Await web.DownloadStringAsync(_grUrl & typeString & "?access_token=" & _apikey.ToString & extras)
+
+        Dim jss = New Web.Script.Serialization.JavaScriptSerializer()
+        Dim ent = jss.Deserialize(Of Dictionary(Of String, Object))(json)
+
+
+
+        Dim rtn As New List(Of MeasurementType)
+
+
+        If ent.ContainsKey("measurement_type") Then
+            Dim insert As New MeasurementType
+            insert.ID = ent("measurement_type")("id")
+            insert.Name = ent("measurement_type")("name")
+            insert.Description = ent("measurement_type")("description")
+            insert.Category = ent("measurement_type")("category")
+            insert.Frequency = ent("measurement_type")("frequency")
+            insert.Unit = ent("measurement_type")("unit")
+            insert.RelatedEntityTypeId = ent("measurement_type")("related_entity_type_id")
+            For Each row In ent("measurement_type")("measurements")
+                Dim insertm As New Measurement
+                insertm.Period = row("period")
+                insertm.Value = row("value")
+                insertm.RelatedEntityId = row("related_entity_id")
+                insertm.MeasurementTypeId = insert.ID
+                insertm.ID = row("id")
+                insert.measurements.Add(insertm)
+            Next
+            rtn.Add(insert)
+        Else
+            For Each row In ent("measurement_types")
+                Dim insert As New MeasurementType
+                insert.ID = row("id")
+                insert.Name = row("name")
+                insert.Description = row("description")
+                insert.Category = row("category")
+                insert.Frequency = row("frequency")
+                insert.Unit = row("unit")
+
+                insert.RelatedEntityTypeId = row("related_entity_type_id")
+                For Each row2 In row("measurements")
+                    Dim insertm As New Measurement
+                    insertm.Period = row2("period")
+                    insertm.Value = row2("value")
+                    insertm.RelatedEntityId = row2("related_entity_id")
+                    insertm.MeasurementTypeId = insert.ID
+                    insertm.ID = row2("id")
+                    insert.measurements.Add(insertm)
+                Next
+                rtn.Add(insert)
+            Next
+
+
+        End If
+
+
+        Return rtn
+    End Function
+
+
     Public Function GetMeasurements(ByVal RelatedEntityId As String, ByVal PeriodFrom As String, ByVal PeriodTo As String, Optional ByVal MeasurementTypeId As String = "", Optional Category As String = "", Optional DefinitionOnly As Boolean = False, Optional filters As String = "") As List(Of MeasurementType)
 
         Dim web As New WebClient()
         web.Encoding = Encoding.UTF8
         Dim extras As String = "&filters[period_from]=" & PeriodFrom & "&filters[period_to]=" & PeriodTo & IIf(RelatedEntityId = "", "", "&filters[related_entity_id]=" & RelatedEntityId) & filters
-        If Category <> "" Then
-            extras &= "&filters[category]=" & Category
-        End If
+       
         If DefinitionOnly Then
             extras = "&per_page=250&filters[related_entity_type_id]=" & RelatedEntityId
 
+        End If
+        If Category <> "" Then
+            extras &= "&filters[category]=" & Category
         End If
         Dim typeString = "measurement_types"
         If MeasurementTypeId <> "" Then
@@ -238,7 +335,7 @@ Public Class GR
 
 
             Dim request As HttpWebRequest = DirectCast(WebRequest.Create(rest), HttpWebRequest)
-
+            request.Proxy = Nothing
             request.Method = "POST"
 
             Dim bytes As Byte() = Text.Encoding.UTF8.GetBytes(postData)
@@ -296,7 +393,7 @@ Public Class GR
 
 
         Dim request As HttpWebRequest = DirectCast(WebRequest.Create(rest), HttpWebRequest)
-
+        request.Proxy = Nothing
         request.Method = "POST"
 
         Dim bytes As Byte() = Text.Encoding.UTF8.GetBytes(postData)
@@ -332,7 +429,7 @@ Public Class GR
         Dim response As HttpWebResponse
 
         Dim request As HttpWebRequest = DirectCast(WebRequest.Create(rest), HttpWebRequest)
-
+        request.Proxy = Nothing
         request.Method = "PUT"
 
         Dim bytes As Byte() = Text.Encoding.UTF8.GetBytes(postData)
@@ -381,7 +478,7 @@ Public Class GR
         Dim response As HttpWebResponse
 
         Dim request As HttpWebRequest = DirectCast(WebRequest.Create(rest), HttpWebRequest)
-
+        request.Proxy = Nothing
         request.Method = "POST"
 
         Dim bytes As Byte() = Text.Encoding.UTF8.GetBytes(postData)
@@ -417,7 +514,7 @@ Public Class GR
 
         Dim rest = _grUrl & "entities/" & p.ID & "/?access_token=" & _apikey.ToString
         Dim request As HttpWebRequest = DirectCast(WebRequest.Create(rest), HttpWebRequest)
-
+        request.Proxy = Nothing
         request.Method = "PUT"
 
         Dim bytes As Byte() = Text.Encoding.UTF8.GetBytes(postData)
@@ -447,7 +544,7 @@ Public Class GR
     Public Sub DeleteEntity(ByVal ID As String)
         Dim rest = _grUrl & "entities/" & ID & "?access_token=" & _apikey.ToString
         Dim request As HttpWebRequest = DirectCast(WebRequest.Create(rest), HttpWebRequest)
-
+        request.Proxy = Nothing
         request.Method = "DELETE"
         Dim response As HttpWebResponse = DirectCast(request.GetResponse(), HttpWebResponse)
 
@@ -471,6 +568,28 @@ Public Class GR
         ' Return New Entity(json)
         Return CreateEntityFromJsonResp(json)
     End Function
+    Public Async Function GetEntityAsync(ByVal ID As String, Optional ByVal AllSystems As Boolean = False) As Task(Of Entity)
+        
+        Dim extras As String = ""
+        If AllSystems Then
+            extras = "&filters[owned_by]=all"
+        End If
+        Dim Json As String = ""
+
+
+        Dim request As HttpWebRequest = DirectCast(WebRequest.Create(_grUrl & "entities/" & ID & "?access_token=" & _apikey.ToString & extras), HttpWebRequest)
+        request.Proxy = Nothing
+        Using response As WebResponse = Await request.GetResponseAsync()
+            Using reader As New IO.StreamReader(response.GetResponseStream())
+                json = reader.ReadToEnd()
+
+            End Using
+        End Using
+       
+
+        ' Return New Entity(json)
+        Return CreateEntityFromJsonResp(json)
+    End Function
     Public Function GetEntities(ByVal EntityType As String, ByVal Filters As String, Optional ByVal Page As Integer = 0, Optional ByVal PerPage As Integer = 0, Optional ByRef TotalPage As Integer = 0) As List(Of Entity)
         Dim web As New WebClient()
         web.Encoding = Encoding.UTF8
@@ -484,11 +603,42 @@ Public Class GR
 
 
     End Function
+    Public Async Function GetEntitiesAsync(ByVal EntityType As String, ByVal Filters As String, Optional ByVal Page As Integer = 0, Optional ByVal PerPage As Integer = 0) As Task(Of List(Of Entity))
+        ' Dim web As New WebClient()
+        ' web.Encoding = Encoding.UTF8
+        Dim url = _grUrl & "entities?access_token=" & _apikey.ToString & "&entity_type=" & EntityType & Filters & CreatePageString(Page, PerPage)
+
+        Dim Json As String = ""
+
+
+        Dim request As HttpWebRequest = DirectCast(WebRequest.Create(url), HttpWebRequest)
+        request.Proxy = Nothing
+
+        Using response As WebResponse = Await request.GetResponseAsync()
+            Using reader As New IO.StreamReader(response.GetResponseStream())
+                Json = reader.ReadToEnd()
+
+            End Using
+        End Using
+
+
+        '  Dim json = web.DownloadString(_grUrl & "entities?access_token=" & _apikey.ToString & "&entity_type=" & EntityType & Filters & CreatePageString(Page, PerPage))
+
+
+
+        'TotalPage = GetTotalPagesFromJson(json)
+        Dim rtn As New List(Of Entity)
+
+        Return CreateEntitiesFromJsonResp(Json)
+
+
+    End Function
     Public Sub addNewRelationshipType(ByVal entity_type1 As String, ByVal entity_type2 As String, ByVal relationship1 As String, ByVal relationship2 As String)
         Dim postData = "{""relationship_type"": {""entity_type1_id"":""" & entity_type1 & """, ""entity_type2_id"":""" & entity_type2 & """,""relationship1"":""" & relationship1 & """,""relationship2"":""" & relationship2 & """ }}"
 
         Dim rest = _grUrl & "relationship_types?access_token=" & _apikey.ToString
         Dim request As HttpWebRequest = DirectCast(WebRequest.Create(rest), HttpWebRequest)
+        request.Proxy = Nothing
         ' request.CookieContainer = myCookieContainer
         request.Method = "POST"
 
@@ -519,6 +669,7 @@ Public Class GR
 
         Dim rest = _grUrl & "relationship_types/" & relationship_id & "?access_token=" & _apikey.ToString
         Dim request As HttpWebRequest = DirectCast(WebRequest.Create(rest), HttpWebRequest)
+        request.Proxy = Nothing
         ' request.CookieContainer = myCookieContainer
         request.Method = "PUT"
 
@@ -543,11 +694,12 @@ Public Class GR
 
     End Sub
 
-    Public Function addRelationshipToEntity(ByVal Entity As Entity, ByVal EntityType1 As String, ByVal Id1 As String, ByVal EntityType2 As String, ByVal Id2 As String, ByVal RelationshipType As String, Optional Role As String = "", Optional ClientIntegrationId1 As String = "", Optional ClientIntegrationId2 As String = "") As Entity
+    Public Function addRelationshipToEntity(ByVal Entity As Entity, ByVal EntityType1 As String, ByVal Id1 As String, ByVal EntityType2 As String, ByVal Id2 As String, ByVal RelationshipType As String, Optional Role As String = "", Optional ClientIntegrationId1 As String = "", Optional ClientIntegrationId2 As String = "", Optional rel_ent_props As Dictionary(Of String, String) = Nothing) As Entity
         Dim r As String = ""
         If Not Role = "" Then
             r = ",""role"": """ & Role & """"
         End If
+        
         Dim cid As String = ""
         If Not ClientIntegrationId1 = "" Then
             cid = """client_integration_id"": """ & ClientIntegrationId1 & """, "
@@ -579,14 +731,21 @@ Public Class GR
         Dim insert As New Entity()
         insert.AddPropertyValue(EntityType2, Id2)
         insert.AddPropertyValue("client_integration_id", ClientIntegrationId1 & "_" & ClientIntegrationId2)
+        If Not rel_ent_props Is Nothing Then
+            For Each row In rel_ent_props
+                insert.AddPropertyValue(row.Key, row.Value)
+            Next
+        End If
+        Entity.AddPropertyValue("client_integration_id", ClientIntegrationId1)
         Entity.collections(RelationshipType & ":relationship").Add(insert)
 
-        Dim postData = "{""entity"":{" & cid & """" & EntityType1 & """: " & Entity.ToJson() & "}}"
+
+        Dim postData = "{""entity"":{""" & EntityType1 & """: " & Entity.ToJson() & "}}"
         'Console.Write(postData & vbNewLine)
         'Trace.WriteLine("to_update:" & postData)
         Dim rest = _grUrl & "entities/" & Id1 & "/?access_token=" & _apikey.ToString
         Dim request As HttpWebRequest = DirectCast(WebRequest.Create(rest), HttpWebRequest)
-
+        request.Proxy = Nothing
         request.Method = "PUT"
 
         Dim bytes As Byte() = Text.Encoding.UTF8.GetBytes(postData)
@@ -614,11 +773,19 @@ Public Class GR
         Return New Entity
     End Function
 
-    Public Function RelateEntity(ByVal EntityType1 As String, ByVal Id1 As String, ByVal EntityType2 As String, ByVal Id2 As String, ByVal RelationshipType As String, Optional Role As String = "", Optional ClientIntegrationId1 As String = "", Optional Client_Integration_Id2 As String = "") As Entity
+    Public Function RelateEntity(ByVal EntityType1 As String, ByVal Id1 As String, ByVal EntityType2 As String, ByVal Id2 As String, ByVal RelationshipType As String, Optional Role As String = "", Optional ClientIntegrationId1 As String = "", Optional Client_Integration_Id2 As String = "", Optional rel_ent_props As Dictionary(Of String, String) = Nothing) As Entity
         Dim r As String = ""
         If Not Role = "" Then
             r = ",""role"": """ & Role & """"
         End If
+
+        If Not rel_ent_props Is Nothing Then
+            For Each row In rel_ent_props
+                r = ",""" & row.Key & """: """ & row.Value & """"
+            Next
+        End If
+
+
         Dim cr As String = ""
         ' If Not Client_Integration_Id2 = "" Then
         cr = ",""client_integration_id"": """ & ClientIntegrationId1 & "_" & Client_Integration_Id2 & """"
@@ -632,7 +799,7 @@ Public Class GR
         Trace.WriteLine("to_update:" & postData)
         Dim rest = _grUrl & "entities/" & Id1 & "/?access_token=" & _apikey.ToString
         Dim request As HttpWebRequest = DirectCast(WebRequest.Create(rest), HttpWebRequest)
-
+        request.Proxy = Nothing
         request.Method = "PUT"
 
         Dim bytes As Byte() = Text.Encoding.UTF8.GetBytes(postData)
@@ -818,6 +985,7 @@ Public Class GR
 
         Dim rest = _grUrl & "entity_types?access_token=" & _apikey.ToString
         Dim request As HttpWebRequest = DirectCast(WebRequest.Create(rest), HttpWebRequest)
+        request.Proxy = Nothing
         ' request.CookieContainer = myCookieContainer
         request.Method = "POST"
 
@@ -849,6 +1017,7 @@ Public Class GR
 
         Dim rest = _grUrl & "entity_types/" & EntityTypeId & "?access_token=" & _apikey.ToString
         Dim request As HttpWebRequest = DirectCast(WebRequest.Create(rest), HttpWebRequest)
+        request.Proxy = Nothing
         ' request.CookieContainer = myCookieContainer
         request.Method = "PUT"
 
@@ -1113,6 +1282,7 @@ Public Class GR
         End If
 
         Dim request As HttpWebRequest = DirectCast(WebRequest.Create(rest), HttpWebRequest)
+        request.Proxy = Nothing
         ' request.CookieContainer = myCookieContainer
         request.Method = "Post"
         Dim rtn As String = ""
@@ -1194,6 +1364,7 @@ Public Class GR
 
         Dim rest = _grUrl & "systems/" & id & "?access_token=" & _apikey.ToString
         Dim request As HttpWebRequest = DirectCast(WebRequest.Create(rest), HttpWebRequest)
+        request.Proxy = Nothing
         ' request.CookieContainer = myCookieContainer
         request.Method = "PUT"
 
@@ -1220,6 +1391,7 @@ Public Class GR
 
         Dim rest = _grUrl & "systems?access_token=" & _apikey.ToString
         Dim request As HttpWebRequest = DirectCast(WebRequest.Create(rest), HttpWebRequest)
+        request.Proxy = Nothing
         ' request.CookieContainer = myCookieContainer
         request.Method = "POST"
 
