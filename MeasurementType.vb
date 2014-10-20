@@ -48,6 +48,15 @@
             _category = value
         End Set
     End Property
+    Private _perm_link As String
+    Public Property PermLink() As String
+        Get
+            Return _perm_link
+        End Get
+        Set(ByVal value As String)
+            _perm_link = value
+        End Set
+    End Property
 
     Private _relatedEntityTypeId As String
     Public Property RelatedEntityTypeId() As String
@@ -112,7 +121,13 @@
         AddTag(rtn, "name", Name)
         AddTag(rtn, "description", Description)
         AddTag(rtn, "frequency", Frequency)
-        AddTag(rtn, "category", Category)
+        If Not String.IsNullOrEmpty(Category) Then
+            AddTag(rtn, "category", Category)
+        End If
+        If Not String.IsNullOrEmpty(PermLink) Then
+            AddTag(rtn, "perm_link", PermLink)
+        End If
+        '
         AddTag(rtn, "unit", Unit)
         AddTag(rtn, "related_entity_type_id", RelatedEntityTypeId, False)
 

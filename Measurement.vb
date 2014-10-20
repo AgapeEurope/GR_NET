@@ -48,6 +48,15 @@
         End Set
     End Property
 
+    Private _dimension As String
+    Public Property Dimension() As String
+        Get
+            Return _dimension
+        End Get
+        Set(ByVal value As String)
+            _dimension = value
+        End Set
+    End Property
 
 
 End Class

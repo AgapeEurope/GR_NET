@@ -198,7 +198,12 @@ Public Class GR
             insert.ID = ent("measurement_type")("id")
             insert.Name = ent("measurement_type")("name")
             insert.Description = ent("measurement_type")("description")
-            insert.Category = ent("measurement_type")("category")
+            If ent("measurement_type").ContainsKey("category") Then
+                insert.Category = ent("measurement_type")("category")
+            End If
+            If ent("measurement_type").ContainsKey("perm_link") Then
+                insert.PermLink = ent("measurement_type")("perm_link")
+            End If
             insert.Frequency = ent("measurement_type")("frequency")
             insert.Unit = ent("measurement_type")("unit")
             insert.RelatedEntityTypeId = ent("measurement_type")("related_entity_type_id")
@@ -218,7 +223,12 @@ Public Class GR
                 insert.ID = row("id")
                 insert.Name = row("name")
                 insert.Description = row("description")
-                insert.Category = row("category")
+                If row.ContainsKey("category") Then
+                    insert.Category = row("category")
+                End If
+                If row.ContainsKey("perm_link") Then
+                    insert.PermLink = row("perm_link")
+                End If
                 insert.Frequency = row("frequency")
                 insert.Unit = row("unit")
 
@@ -250,7 +260,7 @@ Public Class GR
         Dim extras As String = "&filters[period_from]=" & PeriodFrom & "&filters[period_to]=" & PeriodTo & IIf(RelatedEntityId = "", "", "&filters[related_entity_id]=" & RelatedEntityId) & filters
        
         If DefinitionOnly Then
-            extras = "&per_page=250&filters[related_entity_type_id]=" & RelatedEntityId
+            extras = "&per_page=250&filters[related_entity_type_id]=" & RelatedEntityId & filters
 
         End If
         If Category <> "" Then
@@ -275,7 +285,13 @@ Public Class GR
             insert.ID = ent("measurement_type")("id")
             insert.Name = ent("measurement_type")("name")
             insert.Description = ent("measurement_type")("description")
-            insert.Category = ent("measurement_type")("category")
+            If ent("measurement_type").ContainsKey("category") Then
+                insert.Category = ent("measurement_type")("category")
+            End If
+            If ent("measurement_type").ContainsKey("perm_link") Then
+                insert.PermLink = ent("measurement_type")("perm_link")
+            End If
+            'insert.Category = ent("measurement_type")("category")
             insert.Frequency = ent("measurement_type")("frequency")
             insert.Unit = ent("measurement_type")("unit")
             insert.RelatedEntityTypeId = ent("measurement_type")("related_entity_type_id")
@@ -285,6 +301,8 @@ Public Class GR
                 insertm.Value = row("value")
                 insertm.RelatedEntityId = row("related_entity_id")
                 insertm.MeasurementTypeId = insert.ID
+
+
                 insertm.ID = row("id")
                 insert.measurements.Add(insertm)
             Next
@@ -295,7 +313,13 @@ Public Class GR
                 insert.ID = row("id")
                 insert.Name = row("name")
                 insert.Description = row("description")
-                insert.Category = row("category")
+                If row.ContainsKey("category") Then
+                    insert.Category = row("category")
+                End If
+                If row.ContainsKey("perm_link") Then
+                    insert.PermLink = row("perm_link")
+                End If
+
                 insert.Frequency = row("frequency")
                 insert.Unit = row("unit")
 
@@ -873,34 +897,7 @@ Public Class GR
 
     End Function
 
-    ''' <summary>
-    ''' Update an enitity (or entity tree) on the on GR server
-    ''' </summary>
-    ''' <param name="p">The entity to update (or entity tree).</param>
-    ''' <remarks>Only one root entity permitted. You must have a supplied a client_integration_id</remarks>
-    'Public Sub SyncPerson(ByVal p As Entity)
-    '    Dim postData = "{""entity"": {""person"":" & p.ToJson & "}}"
-    '    Console.Write(postData & vbNewLine)
-    '    Dim rest = _grUrl & "entities?access_token=" & _apikey.ToString
-    '    Dim request As HttpWebRequest = DirectCast(WebRequest.Create(rest), HttpWebRequest)
 
-    '    request.Method = "POST"
-
-    '    Dim bytes As Byte() = Text.Encoding.UTF8.GetBytes(postData)
-    '    request.ContentLength = bytes.Length
-    '    request.ContentType = "application/json"
-    '    Dim requestStream = request.GetRequestStream()
-    '    requestStream.Write(bytes, 0, bytes.Length)
-
-
-
-    '    Dim response As HttpWebResponse = DirectCast(request.GetResponse(), HttpWebResponse)
-
-    '    Dim reader As New IO.StreamReader(response.GetResponseStream())
-    '    Dim json = reader.ReadToEnd()
-    '    Console.Write(json & vbNewLine & vbNewLine)
-    '    Dim test = CreateEntityFromJsonResp(json)
-    'End Sub
 
 
 #End Region
@@ -1054,7 +1051,7 @@ Public Class GR
             web.Encoding = Encoding.UTF8
             web.Credentials = mycache
 
-            Dim json = web.DownloadString(_grUrl & "entity_types?access_token=" & _apikey.ToString & "&per_page=100")
+            Dim json = web.DownloadString(_grUrl & "entity_types?access_token=" & _apikey.ToString & "&per_page=500")
 
             Dim jss = New Web.Script.Serialization.JavaScriptSerializer()
             Dim allEntityTypes = jss.Deserialize(Of Dictionary(Of String, List(Of Dictionary(Of String, Object))))(json)
