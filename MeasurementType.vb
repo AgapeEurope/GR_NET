@@ -78,13 +78,14 @@
     End Property
 
     Public measurements As New List(Of Measurement)
-    Public Sub addMeasurement(ByVal RelatedEntityId As String, ByVal Period As String, ByVal Value As Double)
+    Public Sub addMeasurement(ByVal RelatedEntityId As String, ByVal Period As String, ByVal Value As Double, Optional ByVal Dimension As String = "")
         Dim existing = measurements.Where(Function(c As Measurement) c.Period = Period And c.RelatedEntityId = RelatedEntityId)
         If existing.Count = 0 Then
             Dim m As New Measurement()
             m.Period = Period
             m.Value = Value
             m.RelatedEntityId = RelatedEntityId
+            m.Dimension = Dimension
             measurements.Add(m)
 
         End If
@@ -102,6 +103,7 @@
                 rtn &= "{""measurement_type_id"":""" & ID & """," _
                     & """related_entity_id"":""" & row.RelatedEntityId & """," _
              & """period"": """ & row.Period & """," _
+             & """dimension"": """ & row.Dimension & """," _
              & """value"": """ & row.Value & """},"
             Next
         Else
@@ -109,6 +111,7 @@
                 rtn &= "{""measurement_type_id"":""" & ID & """," _
                     & """related_entity_id"":""" & row.RelatedEntityId & """," _
              & """period"": """ & row.Period & """," _
+             & """dimension"": """ & row.Dimension & """," _
              & """value"": """ & row.Value & """},"
             Next
         End If
