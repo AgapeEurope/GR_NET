@@ -68,9 +68,9 @@ Public Class Entity
     ''' <param name="Value">The value of this property (eg London)</param>
     ''' <remarks></remarks>
     Public Sub AddPropertyValue(ByVal Key As String, ByVal Value As String)
-        If String.IsNullOrEmpty(Value) Then
-            Return
-        End If
+        'If String.IsNullOrEmpty(Value) Then
+        '    Return
+        'End If
         If Key = "id" Then
             Me._id = Value
             Return
@@ -109,7 +109,7 @@ Public Class Entity
 
         Else
             'The property belonds to an entity that is a decendant of this one. 
-            Key = Key.Replace(keys(0) & ".", "")
+            Key = Key.Substring(keys(0).Length + 1) 'Key.Replace(keys(0) & ".", "")
             If Not collections.ContainsKey(thisKey) Then  ' Check if the next entity key exists
                 'The next entity supplied in dot notation does not exist. Create this entity and carry on
                 Dim ent As New Entity()
