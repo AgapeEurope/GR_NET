@@ -156,7 +156,11 @@ Public Class GR
         Dim extras As String = "&filters[period_from]=" & PeriodFrom & "&filters[period_to]=" & PeriodTo & IIf(RelatedEntityId = "", "", "&filters[related_entity_id]=" & RelatedEntityId) & filters
        
         If DefinitionOnly Then
-            extras = "&per_page=250&filters[related_entity_type_id]=" & RelatedEntityId
+            If Not String.IsNullOrEmpty(MeasurementTypeId) Then
+                extras = "&per_page=250&filters[related_entity_type_id]=" & RelatedEntityId
+            Else
+                extras = "&per_page=250" & filters
+            End If
 
         End If
         If Category <> "" Then
