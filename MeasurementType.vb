@@ -93,10 +93,10 @@
     End Sub
 
 
-    Public Function MeasurementsToJson(Optional page As Integer = 0) As String
+    Public Function MeasurementsToJson(Optional page As Integer = -1) As String
 
         Dim rtn = "{""measurements"": ["
-        If page = 0 Then
+        If page = -1 Then
 
 
             For Each row In measurements
@@ -107,7 +107,10 @@
              & """value"": """ & row.Value & """},"
             Next
         Else
-            For Each row In measurements.Skip(250 * page).Take(250)
+            If (measurements.Skip(10 * page).Count = 0) Then
+                Return ""
+            End If
+            For Each row In measurements.Skip(10 * page).Take(10)
                 rtn &= "{""measurement_type_id"":""" & ID & """," _
                     & """related_entity_id"":""" & row.RelatedEntityId & """," _
              & """period"": """ & row.Period & """," _

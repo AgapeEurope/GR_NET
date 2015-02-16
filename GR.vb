@@ -216,6 +216,9 @@ Public Class GR
                 insertm.Period = row("period")
                 insertm.Value = row("value")
                 insertm.RelatedEntityId = row("related_entity_id")
+                If row.ContainsKey("dimension") Then
+                    insertm.Dimension = row("dimension")
+                End If
                 insertm.MeasurementTypeId = insert.ID
                 insertm.ID = row("id")
                 insert.measurements.Add(insertm)
@@ -242,6 +245,10 @@ Public Class GR
                     insertm.Period = row2("period")
                     insertm.Value = row2("value")
                     insertm.RelatedEntityId = row2("related_entity_id")
+                    If row2.ContainsKey("dimension") Then
+                        insertm.Dimension = row2("dimension")
+                    End If
+
                     insertm.MeasurementTypeId = insert.ID
                     insertm.ID = row2("id")
                     insert.measurements.Add(insertm)
@@ -353,33 +360,34 @@ Public Class GR
 
 
             Dim postData = mt.MeasurementsToJson(Page)
-
-            Dim rest = _grUrl & "measurements?access_token=" & _apikey.ToString
-
-
-
-            Dim response As HttpWebResponse
+            If Not String.IsNullOrEmpty(postData) Then
+                Dim rest = _grUrl & "measurements?access_token=" & _apikey.ToString
 
 
 
-            Dim request As HttpWebRequest = DirectCast(WebRequest.Create(rest), HttpWebRequest)
-            request.Proxy = Nothing
-            request.Method = "POST"
-
-            Dim bytes As Byte() = Text.Encoding.UTF8.GetBytes(postData)
-            request.ContentLength = bytes.Length
-            request.ContentType = "application/json"
-            Using requestStream = request.GetRequestStream()
+                Dim response As HttpWebResponse
 
 
-                requestStream.Write(bytes, 0, bytes.Length)
+                'System.Net.ServicePointManager.SecurityProtocol = System.Net.SecurityProtocolType.Tls
+                Dim request As HttpWebRequest = DirectCast(WebRequest.Create(rest), HttpWebRequest)
+                request.Proxy = Nothing
+                request.Method = "POST"
 
-                response = DirectCast(request.GetResponse(), HttpWebResponse)
-            End Using
+                Dim bytes As Byte() = Text.Encoding.UTF8.GetBytes(postData)
+                request.ContentLength = bytes.Length
+                request.ContentType = "application/json"
+                Using requestStream = request.GetRequestStream()
 
-            request.Abort()
-            request = Nothing
 
+                    requestStream.Write(bytes, 0, bytes.Length)
+
+                    response = DirectCast(request.GetResponse(), HttpWebResponse)
+                End Using
+
+                request.Abort()
+                request = Nothing
+
+            End If
 
         End If
     End Sub
@@ -389,11 +397,11 @@ Public Class GR
             'nothing to do
             Return
         End If
-        If mt.measurements.Count <= 250 Then
+        If mt.measurements.Count <= 10 Then
             AddMeasurementBatch(mt)
         Else
-            For i As Integer = 0 To CInt(Math.Truncate(mt.measurements.Count / 250))
-                Console.WriteLine("Batch " & i & " of " & CInt(Math.Truncate(mt.measurements.Count / 250)))
+            For i As Integer = 0 To CInt(Math.Truncate(mt.measurements.Count / 10))
+                Console.WriteLine("Batch " & i & " of " & CInt(Math.Truncate(mt.measurements.Count / 10)))
                 AddMeasurementBatch(mt, i)
             Next
         End If
@@ -583,12 +591,12 @@ Public Class GR
 
     End Sub
 
-    Public Function GetEntity(ByVal ID As String, Optional ByVal AllSystems As Boolean = False) As Entity
+    Public Function GetEntity(ByVal ID As String, Optional ByVal AllSystems As Boolean = False, Optional ByVal extras As String = "") As Entity
         Dim web As New WebClient()
         web.Encoding = Encoding.UTF8
-        Dim extras As String = ""
+        'Dim extras As String = ""
         If AllSystems Then
-            extras = "&filters[owned_by]=all"
+            extras &= "&filters[owned_by]=all"
         End If
         Dim json = web.DownloadString(_grUrl & "entities/" & ID & "?access_token=" & _apikey.ToString & extras)
 
@@ -596,12 +604,13 @@ Public Class GR
         ' Return New Entity(json)
         Return CreateEntityFromJsonResp(json)
     End Function
-    Public Async Function GetEntityAsync(ByVal ID As String, Optional ByVal AllSystems As Boolean = False) As Task(Of Entity)
-        
-        Dim extras As String = ""
+    Public Async Function GetEntityAsync(ByVal ID As String, Optional ByVal AllSystems As Boolean = False, Optional ByVal extras As String = "") As Task(Of Entity)
+
+        ' Dim extras As String = ""
         If AllSystems Then
-            extras = "&filters[owned_by]=all"
+            extras &= "&filters[owned_by]=all"
         End If
+
         Dim Json As String = ""
 
 
@@ -609,14 +618,14 @@ Public Class GR
         request.Proxy = Nothing
         Using response As WebResponse = Await request.GetResponseAsync()
             Using reader As New IO.StreamReader(response.GetResponseStream())
-                json = reader.ReadToEnd()
+                Json = reader.ReadToEnd()
 
             End Using
         End Using
-       
+
 
         ' Return New Entity(json)
-        Return CreateEntityFromJsonResp(json)
+        Return CreateEntityFromJsonResp(Json)
     End Function
     Public Function GetEntities(ByVal EntityType As String, ByVal Filters As String, Optional ByVal Page As Integer = 0, Optional ByVal PerPage As Integer = 0, Optional ByRef TotalPage As Integer = 0) As List(Of Entity)
         Dim web As New WebClient()
@@ -795,6 +804,7 @@ Public Class GR
                 Dim json = reader.ReadToEnd()
                 Trace.WriteLine("from-update:" & json)
                 Dim newEntity = CreateEntityFromJsonResp(json)
+                Return newEntity
             End Using
 
         End Using

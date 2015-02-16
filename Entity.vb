@@ -67,10 +67,10 @@ Public Class Entity
     ''' <param name="Key">The name of the Property in dot notation (eg person.address.city)</param>
     ''' <param name="Value">The value of this property (eg London)</param>
     ''' <remarks></remarks>
-    Public Sub AddPropertyValue(ByVal Key As String, ByVal Value As String)
-        'If String.IsNullOrEmpty(Value) Then
-        '    Return
-        'End If
+    Public Sub AddPropertyValue(ByVal Key As String, ByVal Value As String, Optional ByVal ignoreNullOrEmpty As Boolean = True)
+        If String.IsNullOrEmpty(Value) And ignoreNullOrEmpty Then
+            Return
+        End If
         If Key = "id" Then
             Me._id = Value
             Return
