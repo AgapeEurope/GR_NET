@@ -392,22 +392,85 @@ Public Class GR
         End If
     End Sub
 
+    Private Async Function AddMeasurementBatchAsync(ByVal mt As MeasurementType, Optional ByVal Page As Integer = 0) As Task
+        If mt.measurements.Count > 0 Then
+
+
+            Dim postData = mt.MeasurementsToJson(Page)
+            If Not String.IsNullOrEmpty(postData) Then
+                Dim rest = _grUrl & "measurements?access_token=" & _apikey.ToString
+
+
+
+                Dim response As HttpWebResponse
+
+
+                'System.Net.ServicePointManager.SecurityProtocol = System.Net.SecurityProtocolType.Tls
+                Dim request As HttpWebRequest = DirectCast(WebRequest.Create(rest), HttpWebRequest)
+                request.Proxy = Nothing
+                request.Method = "POST"
+
+                Dim bytes As Byte() = Text.Encoding.UTF8.GetBytes(postData)
+                request.ContentLength = bytes.Length
+                request.ContentType = "application/json"
+                Using requestStream = request.GetRequestStream()
+
+
+                    requestStream.Write(bytes, 0, bytes.Length)
+
+                    response = DirectCast(request.GetResponse(), HttpWebResponse)
+                End Using
+
+                request.Abort()
+                request = Nothing
+
+            End If
+
+        End If
+    End Function
+
     Public Sub AddUpdateMeasurement(ByVal mt As MeasurementType)
         If mt.measurements.Count = 0 Then
             'nothing to do
             Return
         End If
-        If mt.measurements.Count <= 10 Then
+        If mt.measurements.Count <= 250 Then
             AddMeasurementBatch(mt)
         Else
-            For i As Integer = 0 To CInt(Math.Truncate(mt.measurements.Count / 10))
-                Console.WriteLine("Batch " & i & " of " & CInt(Math.Truncate(mt.measurements.Count / 10)))
+            For i As Integer = 0 To CInt(Math.Truncate(mt.measurements.Count / 250))
+                Console.WriteLine("Batch " & i & " of " & CInt(Math.Truncate(mt.measurements.Count / 250)))
                 AddMeasurementBatch(mt, i)
             Next
         End If
 
 
     End Sub
+
+    Public Async Function AddUpdateMeasurementAsync(ByVal mt As MeasurementType) As Task
+        If mt.measurements.Count = 0 Then
+            'nothing to do
+            Return
+        End If
+
+        If mt.measurements.Count <= 250 Then
+            Await AddMeasurementBatchAsync(mt)
+        Else
+            Dim tasks As List(Of Task) = New List(Of Task)
+
+
+            For i As Integer = 0 To CInt(Math.Truncate(mt.measurements.Count / 250))
+                'Console.WriteLine("Batch " & i & " of " & CInt(Math.Truncate(mt.measurements.Count / 10)))
+                tasks.Add(AddMeasurementBatchAsync(mt, i))
+
+            Next
+            Task.WaitAll(tasks.ToArray)
+
+        End If
+
+
+    End Function
+
+
 
 #End Region
 
@@ -445,6 +508,8 @@ Public Class GR
 
         End Using
 
+        request.Abort()
+        request = Nothing
 
         'Dim reader As New IO.StreamReader(response.GetResponseStream())
         'Dim json = reader.ReadToEnd()
@@ -480,6 +545,8 @@ Public Class GR
 
 
         End Using
+        request.Abort()
+        request = Nothing
 
 
         'Dim reader As New IO.StreamReader(response.GetResponseStream())

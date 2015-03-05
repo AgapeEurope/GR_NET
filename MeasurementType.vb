@@ -107,10 +107,10 @@
              & """value"": """ & row.Value & """},"
             Next
         Else
-            If (measurements.Skip(10 * page).Count = 0) Then
+            If (measurements.Skip(250 * page).Count = 0) Then
                 Return ""
             End If
-            For Each row In measurements.Skip(10 * page).Take(10)
+            For Each row In measurements.Skip(250 * page).Take(250)
                 rtn &= "{""measurement_type_id"":""" & ID & """," _
                     & """related_entity_id"":""" & row.RelatedEntityId & """," _
              & """period"": """ & row.Period & """," _
