@@ -48,7 +48,15 @@
             _trustedSystems = value
         End Set
     End Property
-
+    Private _trustedIps As List(Of String)
+    Public Property TrustedIps() As List(Of String)
+        Get
+            Return _trustedIps
+        End Get
+        Set(ByVal value As List(Of String))
+            _trustedIps = value
+        End Set
+    End Property
     Private _description As String
     Public Property Description() As String
         Get

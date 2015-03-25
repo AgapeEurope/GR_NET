@@ -38,6 +38,15 @@ Public Class GR
     End Property
 
     Public People As New People()
+    Private _x_forwarded_for As String
+    Public Property XForwardedFor() As String
+        Get
+            Return _x_forwarded_for
+        End Get
+        Set(ByVal value As String)
+            _x_forwarded_for = value
+        End Set
+    End Property
 
 
 
@@ -51,11 +60,13 @@ Public Class GR
     ''' <param name="apiKey">Your GR Auth Key</param>
     ''' <param name="gr_url">The URL of the GR server</param>
     ''' <remarks>The test GR server is used by default.</remarks>
-    Public Sub New(ByVal apiKey As String, Optional ByVal gr_url As String = "https://gr.stage.uscm.org/", Optional ByVal getTypes As Boolean = True)
+    Public Sub New(ByVal apiKey As String, Optional ByVal gr_url As String = "https://gr.stage.uscm.org/", Optional ByVal getTypes As Boolean = True, Optional ByVal xff As String = "")
         If Not apiKey = Nothing Then
             _apikey = apiKey
         End If
-
+        If Not String.IsNullOrEmpty(xff) Then
+            XForwardedFor = xff
+        End If
         _grUrl = gr_url.TrimEnd("/") & "/"  'ensure url ends in '/'
         If getTypes Then
             GetEntityTypeDefFromGR()
@@ -141,6 +152,9 @@ Public Class GR
         Dim request As HttpWebRequest = DirectCast(WebRequest.Create(rest), HttpWebRequest)
         request.Proxy = Nothing
         request.Method = "DELETE"
+        If Not _x_forwarded_for Is Nothing Then
+            request.Headers.Add("X-Forwarded-For", _x_forwarded_for)
+        End If
         response = DirectCast(request.GetResponse(), HttpWebResponse)
 
 
@@ -176,6 +190,9 @@ Public Class GR
 
         Dim request As HttpWebRequest = DirectCast(WebRequest.Create(_grUrl & typeString & "?access_token=" & _apikey.ToString & extras), HttpWebRequest)
         request.Proxy = Nothing
+        If Not _x_forwarded_for Is Nothing Then
+            request.Headers.Add("X-Forwarded-For", _x_forwarded_for)
+        End If
         Using response As WebResponse = Await request.GetResponseAsync()
             Using reader As New IO.StreamReader(response.GetResponseStream())
                 json = reader.ReadToEnd()
@@ -281,6 +298,9 @@ Public Class GR
         If MeasurementTypeId <> "" Then
             typeString = "measurement_types/" & MeasurementTypeId
         End If
+        If Not _x_forwarded_for Is Nothing Then
+            web.Headers.Add("X-Forwarded-For", _x_forwarded_for)
+        End If
         Dim json = web.DownloadString(_grUrl & typeString & "?access_token=" & _apikey.ToString & extras)
 
         Dim jss = New Web.Script.Serialization.JavaScriptSerializer()
@@ -372,7 +392,9 @@ Public Class GR
                 Dim request As HttpWebRequest = DirectCast(WebRequest.Create(rest), HttpWebRequest)
                 request.Proxy = Nothing
                 request.Method = "POST"
-
+                If Not _x_forwarded_for Is Nothing Then
+                    request.Headers.Add("X-Forwarded-For", _x_forwarded_for)
+                End If
                 Dim bytes As Byte() = Text.Encoding.UTF8.GetBytes(postData)
                 request.ContentLength = bytes.Length
                 request.ContentType = "application/json"
@@ -413,6 +435,9 @@ Public Class GR
                 Dim bytes As Byte() = Text.Encoding.UTF8.GetBytes(postData)
                 request.ContentLength = bytes.Length
                 request.ContentType = "application/json"
+                If Not _x_forwarded_for Is Nothing Then
+                    request.Headers.Add("X-Forwarded-For", _x_forwarded_for)
+                End If
                 Using requestStream = request.GetRequestStream()
 
 
@@ -1053,6 +1078,9 @@ Public Class GR
         web.Encoding = Encoding.UTF8
         web.Credentials = mycache
         Dim rest = _grUrl & method & "?access_token=" & _apikey.ToString & "&" & method & "&" & filter
+        If Not _x_forwarded_for Is Nothing Then
+            web.Headers.Add("X-Forwarded-For", _x_forwarded_for)
+        End If
         Return web.DownloadString(rest)
 
     End Function
@@ -1070,6 +1098,9 @@ Public Class GR
         Dim bytes As Byte() = Text.Encoding.UTF8.GetBytes(postData)
         request.ContentLength = bytes.Length
         request.ContentType = "application/json"
+        If Not _x_forwarded_for Is Nothing Then
+            request.Headers.Add("X-Forwarded-For", _x_forwarded_for)
+        End If
         Using requestStream = request.GetRequestStream()
 
 
@@ -1098,7 +1129,9 @@ Public Class GR
         request.Proxy = Nothing
         ' request.CookieContainer = myCookieContainer
         request.Method = "PUT"
-
+        If Not _x_forwarded_for Is Nothing Then
+            request.Headers.Add("X-Forwarded-For", _x_forwarded_for)
+        End If
         Dim bytes As Byte() = Text.Encoding.UTF8.GetBytes(postData)
         request.ContentLength = bytes.Length
         request.ContentType = "application/json"
@@ -1131,7 +1164,9 @@ Public Class GR
             Dim web As New WebClient()
             web.Encoding = Encoding.UTF8
             web.Credentials = mycache
-
+            If Not _x_forwarded_for Is Nothing Then
+                web.Headers.Add("X-Forwarded-For", _x_forwarded_for)
+            End If
             Dim json = web.DownloadString(_grUrl & "entity_types?access_token=" & _apikey.ToString & "&per_page=500")
 
             Dim jss = New Web.Script.Serialization.JavaScriptSerializer()
@@ -1320,7 +1355,9 @@ Public Class GR
         web.Encoding = Encoding.UTF8
 
 
-
+        If Not _x_forwarded_for Is Nothing Then
+            web.Headers.Add("X-Forwarded-For", _x_forwarded_for)
+        End If
         Dim json = web.DownloadString(_grUrl & "systems?access_token=" & _apikey.ToString)
 
         Dim jss = New Web.Script.Serialization.JavaScriptSerializer()
@@ -1337,7 +1374,15 @@ Public Class GR
                 If row.ContainsKey("access_token") Then
                     insert.AccessToken = row("access_token")
                 End If
+                If row.ContainsKey("trusted_ips") Then
 
+                    Dim ips As New List(Of String)
+                    For Each ip In row("trusted_ips")
+                        ips.Add(ip)
+
+                    Next
+                    insert.TrustedIps = ips
+                End If
 
 
                 rtn.Add(insert)
@@ -1367,6 +1412,9 @@ Public Class GR
 
         request.ContentType = "application/json"
         request.ContentLength = 0
+        If Not _x_forwarded_for Is Nothing Then
+            request.Headers.Add("X-Forwarded-For", _x_forwarded_for)
+        End If
         Dim response As HttpWebResponse = DirectCast(request.GetResponse(), HttpWebResponse)
         Using reader As New IO.StreamReader(response.GetResponseStream())
             Dim json = reader.ReadToEnd()
@@ -1414,7 +1462,15 @@ Public Class GR
                         insert.AccessToken = row("access_token")
                     End If
 
+                    If row.ContainsKey("trusted_ips") Then
 
+                        Dim ips As New List(Of String)
+                        For Each ip In row("trusted_ips")
+                            ips.Add(ip)
+
+                        Next
+                        insert.TrustedIps = ips
+                    End If
 
                     rtn.Add(insert)
 
@@ -1429,12 +1485,54 @@ Public Class GR
 
         Return rtn
     End Function
+
+
     Public Shared Function GetSystem(ByVal grUrl As String, ByVal target_api_key As String, root_api_key As String) As grSystem
 
         Return GetSystems(root_api_key, grUrl).Where(Function(c) c.AccessToken = target_api_key).FirstOrDefault
 
     End Function
+    Public Sub EditSystem(ByVal sys As grSystem)
+        Dim postData = "{""system"": {"
 
+        If Not sys.TrustedIps Is Nothing Then
+            postData &= """trusted_ips"": ["
+            For Each row In sys.TrustedIps
+                postData &= """" & row & ""","
+            Next
+            postData = postData.TrimEnd(",")
+            postData &= "],"
+        End If
+
+        postData = postData.TrimEnd(",")
+        postData &= "}}"
+
+
+
+
+        Dim rest = _grUrl & "systems/" & sys.ID & "?access_token=" & _apikey.ToString
+        Dim request As HttpWebRequest = DirectCast(WebRequest.Create(rest), HttpWebRequest)
+        request.Proxy = Nothing
+        ' request.CookieContainer = myCookieContainer
+        request.Method = "PUT"
+
+        Dim bytes As Byte() = Text.Encoding.UTF8.GetBytes(postData)
+        request.ContentLength = bytes.Length
+        request.ContentType = "application/json"
+        If Not _x_forwarded_for Is Nothing Then
+            request.Headers.Add("X-Forwarded-For", _x_forwarded_for)
+        End If
+        Using requestStream = request.GetRequestStream()
+
+
+            requestStream.Write(bytes, 0, bytes.Length)
+
+
+
+            Dim response As HttpWebResponse = DirectCast(request.GetResponse(), HttpWebResponse)
+
+        End Using
+    End Sub
     Public Sub EditSystemRoot(ByVal id As String, ByVal makeRoot As Boolean)
         Dim postData = "{""system"": {""root"":" & makeRoot.ToString.ToLower & "}}"
 
@@ -1449,6 +1547,9 @@ Public Class GR
         Dim bytes As Byte() = Text.Encoding.UTF8.GetBytes(postData)
         request.ContentLength = bytes.Length
         request.ContentType = "application/json"
+        If Not _x_forwarded_for Is Nothing Then
+            request.Headers.Add("X-Forwarded-For", _x_forwarded_for)
+        End If
         Using requestStream = request.GetRequestStream()
 
 
@@ -1476,6 +1577,9 @@ Public Class GR
         Dim bytes As Byte() = Text.Encoding.UTF8.GetBytes(postData)
         request.ContentLength = bytes.Length
         request.ContentType = "application/json"
+        If Not _x_forwarded_for Is Nothing Then
+            request.Headers.Add("X-Forwarded-For", _x_forwarded_for)
+        End If
         Using requestStream = request.GetRequestStream()
             requestStream.Write(bytes, 0, bytes.Length)
 
@@ -1489,6 +1593,22 @@ Public Class GR
         'refresh the local entityType model
 
     End Sub
+
+    Public Shared Function ValidateApiKey(ByVal gr_url, api_key) As Boolean
+        Dim rtn = False
+        Try
+            Dim web As New WebClient()
+            web.Encoding = Encoding.UTF8
+
+            Dim json = web.DownloadString(gr_url & "systems?access_token=" & api_key.ToString)
+            If Not String.IsNullOrEmpty(json) Then
+                rtn = True
+            End If
+        Catch
+
+        End Try
+        Return rtn
+    End Function
 
 #End Region
 
