@@ -719,19 +719,51 @@ Public Class GR
         ' Return New Entity(json)
         Return CreateEntityFromJsonResp(Json)
     End Function
-    Public Function GetEntities(ByVal EntityType As String, ByVal Filters As String, Optional ByVal Page As Integer = 0, Optional ByVal PerPage As Integer = 0, Optional ByRef TotalPage As Integer = 0) As List(Of Entity)
+
+    Private Function hasNextPage(ByVal json As String) As Boolean
+
+        Try
+            Dim jss = New Web.Script.Serialization.JavaScriptSerializer()
+            Dim ent = jss.Deserialize(Of Dictionary(Of String, Object))(json)
+            Return CType(ent("meta"), Dictionary(Of String, Object))("next_page") = "true"
+        Catch ex As Exception
+
+        End Try
+
+        Return False
+    End Function
+
+    Public Function GetEntities(ByVal EntityType As String, ByVal Filters As String, Optional ByVal Page As Integer = 1, Optional ByVal PerPage As Integer = 100, Optional ByRef TotalPage As Integer = 1, Optional GetAllPages As Boolean = True) As List(Of Entity)
         Dim web As New WebClient()
         web.Encoding = Encoding.UTF8
-        Dim url = _grUrl & "entities?access_token=" & _apikey.ToString & "&entity_type=" & EntityType & Filters & CreatePageString(Page, PerPage)
 
-        Dim json = web.DownloadString(_grUrl & "entities?access_token=" & _apikey.ToString & "&entity_type=" & EntityType & Filters & CreatePageString(Page, PerPage))
-        TotalPage = GetTotalPagesFromJson(json)
         Dim rtn As New List(Of Entity)
+        Dim has_next = True
 
-        Return CreateEntitiesFromJsonResp(json)
+        While has_next
 
+            Dim url = _grUrl & "entities?access_token=" & _apikey.ToString & "&entity_type=" & EntityType & Filters & "&page=" & Page & "&per_page=" & PerPage
+
+            Dim json = web.DownloadString(url)
+
+
+            ' TotalPage = GetTotalPagesFromJson(json)
+
+            has_next = hasNextPage(json) And GetAllPages
+            If has_next = False Then
+                TotalPage = GetTotalPagesFromJson(json)
+            End If
+            rtn.AddRange(CreateEntitiesFromJsonResp(json))
+            Page += 1
+        End While
+
+
+
+        Return rtn
 
     End Function
+
+
     Public Async Function GetEntitiesAsync(ByVal EntityType As String, ByVal Filters As String, Optional ByVal Page As Integer = 0, Optional ByVal PerPage As Integer = 0) As Task(Of List(Of Entity))
         ' Dim web As New WebClient()
         ' web.Encoding = Encoding.UTF8
