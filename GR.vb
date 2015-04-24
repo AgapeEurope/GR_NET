@@ -24,6 +24,15 @@ Public Class GR
             _apikey = value
         End Set
     End Property
+    Private _api_system As String
+    Public Property ApiSystem() As String
+        Get
+            Return _api_system
+        End Get
+        Set(ByVal value As String)
+            _api_system = value
+        End Set
+    End Property
 
     Private _grUrl = ""
 
@@ -45,6 +54,15 @@ Public Class GR
         End Get
         Set(ByVal value As String)
             _x_forwarded_for = value
+        End Set
+    End Property
+    Private _measApi As String
+    Public Property MeasApi() As String
+        Get
+            Return _measApi
+        End Get
+        Set(ByVal value As String)
+            _measApi = value
         End Set
     End Property
 
@@ -82,6 +100,9 @@ Public Class GR
         Dim rtn As New List(Of Subscription)
         Dim web As New WebClient()
         web.Encoding = Encoding.UTF8
+        If Not _x_forwarded_for Is Nothing Then
+            web.Headers.Add("X-Forwarded-For", _x_forwarded_for)
+        End If
         Dim json = web.DownloadString(_grUrl & "subscriptions?access_token=" & _apikey.ToString)
 
         Dim jss = New Web.Script.Serialization.JavaScriptSerializer()
@@ -106,6 +127,9 @@ Public Class GR
         Dim request As HttpWebRequest = DirectCast(WebRequest.Create(rest), HttpWebRequest)
         request.Proxy = Nothing
         request.Method = "DELETE"
+        If Not _x_forwarded_for Is Nothing Then
+            request.Headers.Add("X-Forwarded-For", _x_forwarded_for)
+        End If
         response = DirectCast(request.GetResponse(), HttpWebResponse)
 
 
@@ -168,7 +192,7 @@ Public Class GR
         ' Dim web As New WebClient()
         'web.Encoding = Encoding.UTF8
         Dim extras As String = "&filters[period_from]=" & PeriodFrom & "&filters[period_to]=" & PeriodTo & IIf(RelatedEntityId = "", "", "&filters[related_entity_id]=" & RelatedEntityId) & filters
-       
+
         If DefinitionOnly Then
             If Not String.IsNullOrEmpty(MeasurementTypeId) Then
                 extras = "&per_page=250&filters[related_entity_type_id]=" & RelatedEntityId
@@ -196,7 +220,7 @@ Public Class GR
         Using response As WebResponse = Await request.GetResponseAsync()
             Using reader As New IO.StreamReader(response.GetResponseStream())
                 json = reader.ReadToEnd()
-                
+
             End Using
         End Using
 
@@ -286,7 +310,7 @@ Public Class GR
         Dim web As New WebClient()
         web.Encoding = Encoding.UTF8
         Dim extras As String = "&filters[period_from]=" & PeriodFrom & "&filters[period_to]=" & PeriodTo & IIf(RelatedEntityId = "", "", "&filters[related_entity_id]=" & RelatedEntityId) & filters
-       
+
         If DefinitionOnly Then
             extras = "&per_page=250&filters[related_entity_type_id]=" & RelatedEntityId & filters
 
@@ -331,8 +355,13 @@ Public Class GR
                 insertm.Period = row("period")
                 insertm.Value = row("value")
                 insertm.RelatedEntityId = row("related_entity_id")
+                If row.ContainsKey("dimension") Then
+                    insertm.Dimension = row("dimension")
+                End If
                 insertm.MeasurementTypeId = insert.ID
-
+                If row.ContainsKey("created_by") Then
+                    insertm.CreatedBy = row("created_by")
+                End If
 
                 insertm.ID = row("id")
                 insert.measurements.Add(insertm)
@@ -360,6 +389,12 @@ Public Class GR
                     insertm.Period = row2("period")
                     insertm.Value = row2("value")
                     insertm.RelatedEntityId = row2("related_entity_id")
+                    If row2.ContainsKey("dimension") Then
+                        insertm.Dimension = row2("dimension")
+                    End If
+                    If row2.ContainsKey("created_by") Then
+                        insertm.CreatedBy = row2("created_by")
+                    End If
                     insertm.MeasurementTypeId = insert.ID
                     insertm.ID = row2("id")
                     insert.measurements.Add(insertm)
@@ -375,13 +410,23 @@ Public Class GR
     End Function
 
 
-    Private Sub AddMeasurementBatch(ByVal mt As MeasurementType, Optional ByVal Page As Integer = 0)
+    Private Sub AddMeasurementBatch(ByVal mt As MeasurementType, Optional ByVal Page As Integer = 0, Optional BatchSize As Integer = 250, Optional ByVal UseLMI As Boolean = False)
         If mt.measurements.Count > 0 Then
+            Dim postData As String
+            Dim rest As String
+            If UseLMI Then
+                postData = mt.LmiMeasurementsToJson(Page, BatchSize)
+                rest = _measApi & "sys_measurements?access_token=" & _apikey.ToString
+
+            Else
+                postData = mt.MeasurementsToJson(Page, BatchSize)
+
+                rest = _grUrl & "measurements?access_token=" & _apikey.ToString
+            End If
 
 
-            Dim postData = mt.MeasurementsToJson(Page)
+
             If Not String.IsNullOrEmpty(postData) Then
-                Dim rest = _grUrl & "measurements?access_token=" & _apikey.ToString
 
 
 
@@ -402,8 +447,14 @@ Public Class GR
 
 
                     requestStream.Write(bytes, 0, bytes.Length)
+                    Try
+                        response = DirectCast(request.GetResponse(), HttpWebResponse)
+                        Console.Write(".")
+                    Catch ex As Exception
+                        Console.Write("e")
+                    End Try
 
-                    response = DirectCast(request.GetResponse(), HttpWebResponse)
+
                 End Using
 
                 request.Abort()
@@ -414,13 +465,20 @@ Public Class GR
         End If
     End Sub
 
-    Private Async Function AddMeasurementBatchAsync(ByVal mt As MeasurementType, Optional ByVal Page As Integer = 0) As Task
+    Private Async Function AddMeasurementBatchAsync(ByVal mt As MeasurementType, Optional ByVal Page As Integer = 0, Optional BatchSize As Integer = 250, Optional ByVal UseLMI As Boolean = False) As Task
         If mt.measurements.Count > 0 Then
+            Dim postData As String
+            Dim rest As String
+            If UseLMI Then
+                postData = mt.LmiMeasurementsToJson(Page)
+                rest = _grUrl & "measurements?access_token=" & _apikey.ToString
+            Else
+                postData = mt.MeasurementsToJson(Page)
+                rest = _grUrl & "measurements?access_token=" & _apikey.ToString
+            End If
 
-
-            Dim postData = mt.MeasurementsToJson(Page)
             If Not String.IsNullOrEmpty(postData) Then
-                Dim rest = _grUrl & "measurements?access_token=" & _apikey.ToString
+
 
 
 
@@ -454,22 +512,28 @@ Public Class GR
         End If
     End Function
 
-    Public Sub AddUpdateMeasurement(ByVal mt As MeasurementType)
+    Public Sub AddUpdateMeasurement(ByVal mt As MeasurementType, Optional ByVal UseLMI As Boolean = False, Optional BatchSize As Integer = 250)
         If mt.measurements.Count = 0 Then
             'nothing to do
             Return
         End If
-        If mt.measurements.Count <= 250 Then
-            AddMeasurementBatch(mt)
+        If mt.measurements.Count <= BatchSize Then
+            AddMeasurementBatch(mt, BatchSize:=BatchSize, UseLMI:=UseLMI)
         Else
-            For i As Integer = 0 To CInt(Math.Truncate(mt.measurements.Count / 250))
-                Console.WriteLine("Batch " & i & " of " & CInt(Math.Truncate(mt.measurements.Count / 250)))
-                AddMeasurementBatch(mt, i)
+            For i As Integer = 0 To CInt(Math.Truncate(mt.measurements.Count / BatchSize))
+                If Not UseLMI Then
+                    Console.WriteLine("Batch " & i & " of " & CInt(Math.Truncate(mt.measurements.Count / BatchSize)))
+                End If
+
+                AddMeasurementBatch(mt, i, BatchSize, UseLMI)
             Next
         End If
 
 
     End Sub
+
+
+
 
     Public Async Function AddUpdateMeasurementAsync(ByVal mt As MeasurementType) As Task
         If mt.measurements.Count = 0 Then
@@ -477,13 +541,13 @@ Public Class GR
             Return
         End If
 
-        If mt.measurements.Count <= 250 Then
+        If mt.measurements.Count <= 100 Then
             Await AddMeasurementBatchAsync(mt)
         Else
             Dim tasks As List(Of Task) = New List(Of Task)
 
 
-            For i As Integer = 0 To CInt(Math.Truncate(mt.measurements.Count / 250))
+            For i As Integer = 0 To CInt(Math.Truncate(mt.measurements.Count / 100))
                 'Console.WriteLine("Batch " & i & " of " & CInt(Math.Truncate(mt.measurements.Count / 10)))
                 tasks.Add(AddMeasurementBatchAsync(mt, i))
 
@@ -523,6 +587,10 @@ Public Class GR
         Dim bytes As Byte() = Text.Encoding.UTF8.GetBytes(postData)
         request.ContentLength = bytes.Length
         request.ContentType = "application/json"
+
+        If Not _x_forwarded_for Is Nothing Then
+            request.Headers.Add("X-Forwarded-For", _x_forwarded_for)
+        End If
         Using requestStream = request.GetRequestStream()
 
 
@@ -557,7 +625,9 @@ Public Class GR
         Dim request As HttpWebRequest = DirectCast(WebRequest.Create(rest), HttpWebRequest)
         request.Proxy = Nothing
         request.Method = "PUT"
-
+        If Not _x_forwarded_for Is Nothing Then
+            request.Headers.Add("X-Forwarded-For", _x_forwarded_for)
+        End If
         Dim bytes As Byte() = Text.Encoding.UTF8.GetBytes(postData)
         request.ContentLength = bytes.Length
         request.ContentType = "application/json"
@@ -608,7 +678,9 @@ Public Class GR
         Dim request As HttpWebRequest = DirectCast(WebRequest.Create(rest), HttpWebRequest)
         request.Proxy = Nothing
         request.Method = "POST"
-
+        If Not _x_forwarded_for Is Nothing Then
+            request.Headers.Add("X-Forwarded-For", _x_forwarded_for)
+        End If
         Dim bytes As Byte() = Text.Encoding.UTF8.GetBytes(postData)
         request.ContentLength = bytes.Length
         request.ContentType = "application/json"
@@ -644,7 +716,9 @@ Public Class GR
         Dim request As HttpWebRequest = DirectCast(WebRequest.Create(rest), HttpWebRequest)
         request.Proxy = Nothing
         request.Method = "PUT"
-
+        If Not _x_forwarded_for Is Nothing Then
+            request.Headers.Add("X-Forwarded-For", _x_forwarded_for)
+        End If
         Dim bytes As Byte() = Text.Encoding.UTF8.GetBytes(postData)
         request.ContentLength = bytes.Length
         request.ContentType = "application/json"
@@ -674,6 +748,9 @@ Public Class GR
         Dim request As HttpWebRequest = DirectCast(WebRequest.Create(rest), HttpWebRequest)
         request.Proxy = Nothing
         request.Method = "DELETE"
+        If Not _x_forwarded_for Is Nothing Then
+            request.Headers.Add("X-Forwarded-For", _x_forwarded_for)
+        End If
         Dim response As HttpWebResponse = DirectCast(request.GetResponse(), HttpWebResponse)
 
         Using reader As New IO.StreamReader(response.GetResponseStream())
@@ -689,6 +766,9 @@ Public Class GR
         'Dim extras As String = ""
         If AllSystems Then
             extras &= "&filters[owned_by]=all"
+        End If
+        If Not _x_forwarded_for Is Nothing Then
+            web.Headers.Add("X-Forwarded-For", _x_forwarded_for)
         End If
         Dim json = web.DownloadString(_grUrl & "entities/" & ID & "?access_token=" & _apikey.ToString & extras)
 
@@ -708,6 +788,9 @@ Public Class GR
 
         Dim request As HttpWebRequest = DirectCast(WebRequest.Create(_grUrl & "entities/" & ID & "?access_token=" & _apikey.ToString & extras), HttpWebRequest)
         request.Proxy = Nothing
+        If Not _x_forwarded_for Is Nothing Then
+            request.Headers.Add("X-Forwarded-For", _x_forwarded_for)
+        End If
         Using response As WebResponse = Await request.GetResponseAsync()
             Using reader As New IO.StreamReader(response.GetResponseStream())
                 Json = reader.ReadToEnd()
@@ -739,18 +822,20 @@ Public Class GR
 
         Dim rtn As New List(Of Entity)
         Dim has_next = True
-
+        TotalPage = 1
         While has_next
 
             Dim url = _grUrl & "entities?access_token=" & _apikey.ToString & "&entity_type=" & EntityType & Filters & "&page=" & Page & "&per_page=" & PerPage
-
+            If Not _x_forwarded_for Is Nothing Then
+                web.Headers.Add("X-Forwarded-For", _x_forwarded_for)
+            End If
             Dim json = web.DownloadString(url)
 
 
             ' TotalPage = GetTotalPagesFromJson(json)
 
             has_next = hasNextPage(json) And GetAllPages
-            If has_next = False Then
+            If has_next = False And Not GetAllPages Then
                 TotalPage = GetTotalPagesFromJson(json)
             End If
             rtn.AddRange(CreateEntitiesFromJsonResp(json))
@@ -764,33 +849,48 @@ Public Class GR
     End Function
 
 
-    Public Async Function GetEntitiesAsync(ByVal EntityType As String, ByVal Filters As String, Optional ByVal Page As Integer = 0, Optional ByVal PerPage As Integer = 0) As Task(Of List(Of Entity))
-        ' Dim web As New WebClient()
-        ' web.Encoding = Encoding.UTF8
-        Dim url = _grUrl & "entities?access_token=" & _apikey.ToString & "&entity_type=" & EntityType & Filters & CreatePageString(Page, PerPage)
+    Public Async Function GetEntitiesAsync(ByVal EntityType As String, ByVal Filters As String) As Task(Of List(Of Entity))
+        Dim web As New WebClient()
+        web.Encoding = Encoding.UTF8
 
-        Dim Json As String = ""
-
-
-        Dim request As HttpWebRequest = DirectCast(WebRequest.Create(url), HttpWebRequest)
-        request.Proxy = Nothing
-
-        Using response As WebResponse = Await request.GetResponseAsync()
-            Using reader As New IO.StreamReader(response.GetResponseStream())
-                Json = reader.ReadToEnd()
-
-            End Using
-        End Using
-
-
-        '  Dim json = web.DownloadString(_grUrl & "entities?access_token=" & _apikey.ToString & "&entity_type=" & EntityType & Filters & CreatePageString(Page, PerPage))
-
-
-
-        'TotalPage = GetTotalPagesFromJson(json)
         Dim rtn As New List(Of Entity)
+        Dim has_next = True
+        Dim Page As Integer = 1
+        Dim PerPage As Integer = 100
+        While has_next
 
-        Return CreateEntitiesFromJsonResp(Json)
+            Dim url = _grUrl & "entities?access_token=" & _apikey.ToString & "&entity_type=" & EntityType & Filters & "&page=" & Page & "&per_page=" & PerPage
+
+            Dim Json As String = ""
+
+
+            Dim request As HttpWebRequest = DirectCast(WebRequest.Create(url), HttpWebRequest)
+            request.Proxy = Nothing
+            If Not _x_forwarded_for Is Nothing Then
+                request.Headers.Add("X-Forwarded-For", _x_forwarded_for)
+            End If
+            Using response As WebResponse = Await request.GetResponseAsync()
+                Using reader As New IO.StreamReader(response.GetResponseStream())
+                    Json = reader.ReadToEnd()
+
+                End Using
+            End Using
+
+
+            ' TotalPage = GetTotalPagesFromJson(json)
+
+            has_next = hasNextPage(Json)
+
+            rtn.AddRange(CreateEntitiesFromJsonResp(Json))
+            Page += 1
+        End While
+
+
+
+        Return rtn
+
+
+
 
 
     End Function
@@ -806,6 +906,9 @@ Public Class GR
         Dim bytes As Byte() = Text.Encoding.UTF8.GetBytes(postData)
         request.ContentLength = bytes.Length
         request.ContentType = "application/json"
+        If Not _x_forwarded_for Is Nothing Then
+            request.Headers.Add("X-Forwarded-For", _x_forwarded_for)
+        End If
         Using requestStream = request.GetRequestStream()
 
 
@@ -837,6 +940,9 @@ Public Class GR
         Dim bytes As Byte() = Text.Encoding.UTF8.GetBytes(postData)
         request.ContentLength = bytes.Length
         request.ContentType = "application/json"
+        If Not _x_forwarded_for Is Nothing Then
+            request.Headers.Add("X-Forwarded-For", _x_forwarded_for)
+        End If
         Using requestStream = request.GetRequestStream()
 
 
@@ -908,7 +1014,9 @@ Public Class GR
         Dim request As HttpWebRequest = DirectCast(WebRequest.Create(rest), HttpWebRequest)
         request.Proxy = Nothing
         request.Method = "PUT"
-
+        If Not _x_forwarded_for Is Nothing Then
+            request.Headers.Add("X-Forwarded-For", _x_forwarded_for)
+        End If
         Dim bytes As Byte() = Text.Encoding.UTF8.GetBytes(postData)
         request.ContentLength = bytes.Length
         request.ContentType = "application/json"
@@ -967,6 +1075,9 @@ Public Class GR
         Dim bytes As Byte() = Text.Encoding.UTF8.GetBytes(postData)
         request.ContentLength = bytes.Length
         request.ContentType = "application/json"
+        If Not _x_forwarded_for Is Nothing Then
+            request.Headers.Add("X-Forwarded-For", _x_forwarded_for)
+        End If
         Using requestStream = request.GetRequestStream()
 
 
@@ -989,7 +1100,9 @@ Public Class GR
     Public Function GetRelationshipsForEntityType(ByVal entity_type_id As String) As List(Of RelationshipType)
         Dim web As New WebClient()
         web.Encoding = Encoding.UTF8
-
+        If Not _x_forwarded_for Is Nothing Then
+            web.Headers.Add("X-Forwarded-For", _x_forwarded_for)
+        End If
         Dim json = web.DownloadString(_grUrl & "relationship_types?access_token=" & _apikey.ToString & "&filters[involving]=" & entity_type_id)
         Dim jss = New Web.Script.Serialization.JavaScriptSerializer()
         Dim rts = jss.Deserialize(Of Dictionary(Of String, List(Of Dictionary(Of String, Object))))(json)
@@ -1212,7 +1325,38 @@ Public Class GR
         End If
     End Sub
 
-    ''' <summary>
+
+    Public Function GetEnums() As List(Of EntityType)
+        Dim rtn As New List(Of EntityType)
+        If (Not String.IsNullOrEmpty(_apikey)) And (Not String.IsNullOrEmpty(_grUrl)) Then
+
+
+            ServicePointManager.ServerCertificateValidationCallback = AddressOf TrustAllCertificateCallback
+            Dim mycache As CredentialCache = New CredentialCache()
+
+            Dim web As New WebClient()
+            web.Encoding = Encoding.UTF8
+            web.Credentials = mycache
+            If Not _x_forwarded_for Is Nothing Then
+                web.Headers.Add("X-Forwarded-For", _x_forwarded_for)
+            End If
+            Dim json = web.DownloadString(_grUrl & "entity_types?access_token=" & _apikey.ToString & "&filters[name]=_enum_values")
+
+            Dim jss = New Web.Script.Serialization.JavaScriptSerializer()
+            Dim allEntityTypes = jss.Deserialize(Of Dictionary(Of String, List(Of Dictionary(Of String, Object))))(json)
+            _entity_types_def = New List(Of EntityType)
+
+            For Each row As Dictionary(Of String, Object) In (allEntityTypes("entity_types").First()("fields"))
+                Dim insert As New EntityType("_enum_values", "")
+                insert.Name = row("name")
+                insert.EnumValues = CType(row("enum_values"), ArrayList).Cast(Of String)().ToArray
+
+                rtn.Add(insert)
+            Next
+
+        End If
+        Return rtn
+    End Function
     ''' Recursive subroutine to parse the JSON response for entity_type definition
     ''' </summary>
     ''' <param name="input"></param>
@@ -1596,8 +1740,17 @@ Public Class GR
 
     End Sub
 
-    Public Sub CreateSystem(ByVal name As String)
-        Dim postData = "{""system"": {""name"":""" & name & """}}"
+    Public Sub CreateSystem(ByVal name As String, Optional trusted_ips As List(Of String) = Nothing)
+        Dim tips = ""
+        If Not trusted_ips Is Nothing Then
+            tips = ", ""trusted_ips"": ["
+            For Each row In trusted_ips
+                tips &= """" & row & ""","
+            Next
+            tips = tips.TrimEnd(",")
+            tips &= "]"
+        End If
+        Dim postData = "{""system"": {""name"":""" & name & """" & tips & "}}"
 
 
         Dim rest = _grUrl & "systems?access_token=" & _apikey.ToString
@@ -1626,12 +1779,12 @@ Public Class GR
 
     End Sub
 
-    Public Shared Function ValidateApiKey(ByVal gr_url, api_key) As Boolean
+    Public Shared Function ValidateApiKey(ByVal gr_url As String, ByVal api_key As String) As Boolean
         Dim rtn = False
         Try
             Dim web As New WebClient()
             web.Encoding = Encoding.UTF8
-
+           
             Dim json = web.DownloadString(gr_url & "systems?access_token=" & api_key.ToString)
             If Not String.IsNullOrEmpty(json) Then
                 rtn = True

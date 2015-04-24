@@ -93,13 +93,13 @@
     End Sub
 
 
-    Public Function MeasurementsToJson(Optional page As Integer = -1) As String
+    Public Function MeasurementsToJson(Optional page As Integer = -1, Optional BatchSize As Integer = 250) As String
 
         Dim rtn = "{""measurements"": ["
         If page = -1 Then
 
 
-            For Each row In measurements
+            For Each row In measurements.Where(Function(c) c.Value < "100000000")
                 rtn &= "{""measurement_type_id"":""" & ID & """," _
                     & """related_entity_id"":""" & row.RelatedEntityId & """," _
              & """period"": """ & row.Period & """," _
@@ -107,10 +107,10 @@
              & """value"": """ & row.Value & """},"
             Next
         Else
-            If (measurements.Skip(250 * page).Count = 0) Then
+            If (measurements.Where(Function(c) c.Value < "100000000").Skip(BatchSize * page).Count = 0) Then
                 Return ""
             End If
-            For Each row In measurements.Skip(250 * page).Take(250)
+            For Each row In measurements.Where(Function(c) c.Value < "100000000").Skip(BatchSize * page).Take(BatchSize)
                 rtn &= "{""measurement_type_id"":""" & ID & """," _
                     & """related_entity_id"":""" & row.RelatedEntityId & """," _
              & """period"": """ & row.Period & """," _
@@ -122,6 +122,37 @@
         rtn &= "]}"
         Return rtn
     End Function
+
+    Public Function LmiMeasurementsToJson(Optional page As Integer = -1, Optional BatchSize As Integer = 250) As String
+
+        Dim rtn = "["
+        If page = -1 Then
+
+
+            For Each row In measurements
+                rtn &= "{""measurement_type_id"":""" & ID & """," _
+                    & """related_entity_id"":""" & row.RelatedEntityId & """," _
+             & """period"": """ & row.Period & """," _
+             & """mcc"": """ & row.Dimension & """," _
+             & """value"": """ & row.Value & """},"
+            Next
+        Else
+            If (measurements.Skip(BatchSize * page).Count = 0) Then
+                Return ""
+            End If
+            For Each row In measurements.Skip(BatchSize * page).Take(BatchSize)
+                rtn &= "{""measurement_type_id"":""" & ID & """," _
+                    & """related_entity_id"":""" & row.RelatedEntityId & """," _
+             & """period"": """ & row.Period & """," _
+             & """mcc"": """ & row.Dimension & """," _
+             & """value"": """ & row.Value & """},"
+            Next
+        End If
+        rtn = rtn.TrimEnd(",")
+        rtn &= "]"
+        Return rtn
+    End Function
+
     Public Function ToJson() As String
         Dim rtn = "{""measurement_type"": {"
         AddTag(rtn, "name", Name)

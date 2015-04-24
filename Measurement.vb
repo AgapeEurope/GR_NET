@@ -58,5 +58,14 @@
         End Set
     End Property
 
+    Private _created_by As String
+    Public Property CreatedBy() As String
+        Get
+            Return _created_by
+        End Get
+        Set(ByVal value As String)
+            _created_by = value
+        End Set
+    End Property
 
 End Class
