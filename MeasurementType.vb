@@ -79,7 +79,7 @@
 
     Public measurements As New List(Of Measurement)
     Public Sub addMeasurement(ByVal RelatedEntityId As String, ByVal Period As String, ByVal Value As Double, Optional ByVal Dimension As String = "")
-        Dim existing = measurements.Where(Function(c As Measurement) c.Period = Period And c.RelatedEntityId = RelatedEntityId)
+        Dim existing = measurements.Where(Function(c As Measurement) c.Period = Period And c.RelatedEntityId = RelatedEntityId And c.Dimension = Dimension)
         If existing.Count = 0 Then
             Dim m As New Measurement()
             m.Period = Period
@@ -87,7 +87,8 @@
             m.RelatedEntityId = RelatedEntityId
             m.Dimension = Dimension
             measurements.Add(m)
-
+        Else
+            Console.WriteLine("already exists")
         End If
 
     End Sub

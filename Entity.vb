@@ -139,9 +139,9 @@ Public Class Entity
     ''' </summary>
     ''' <returns></returns>
     ''' <remarks>The JSON response can be supplied to GR API to add/update this entity (and its decendants) to the GR</remarks>
-    Public Function ToJson(Optional ByVal sbc As String = "") As String
+    Public Function ToJson(Optional ByVal sbc As String = "", Optional ByVal skip_empty_array As Boolean = True) As String
         Dim json As String = "{"
-        For Each row In profileProperties.Where(Function(c) c.Value.Count > 0)
+        For Each row In profileProperties.Where(Function(c) c.Value.Count > 0 And skip_empty_array)
             If row.Value.Count > 1 Then
                 json &= """" & row.Key & """: ["
                 For Each row2 In row.Value

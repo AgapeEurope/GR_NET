@@ -303,6 +303,103 @@ Public Class GR
 
         Return rtn
     End Function
+    Public Function GetMeasurementsAsOfDate(ByVal RelatedEntityId As String, ByVal Period As String, Optional ByVal MeasurementTypeId As String = "", Optional filters As String = "") As List(Of MeasurementType)
+
+        Dim web As New WebClient()
+        web.Encoding = Encoding.UTF8
+        Dim extras As String = "&filters[as_of_date]=" & Period & IIf(RelatedEntityId = "", "", "&filters[related_entity_id]=" & RelatedEntityId) & filters
+
+
+        Dim typeString = "measurement_types"
+        If MeasurementTypeId <> "" Then
+            typeString = "measurement_types/" & MeasurementTypeId
+        End If
+        If Not _x_forwarded_for Is Nothing Then
+            web.Headers.Add("X-Forwarded-For", _x_forwarded_for)
+        End If
+        Dim json = web.DownloadString(_grUrl & typeString & "?access_token=" & _apikey.ToString & extras)
+
+        Dim jss = New Web.Script.Serialization.JavaScriptSerializer()
+        Dim ent = jss.Deserialize(Of Dictionary(Of String, Object))(json)
+
+
+
+        Dim rtn As New List(Of MeasurementType)
+
+
+        If ent.ContainsKey("measurement_type") Then
+            Dim insert As New MeasurementType
+            insert.ID = ent("measurement_type")("id")
+            insert.Name = ent("measurement_type")("name")
+            insert.Description = ent("measurement_type")("description")
+            If ent("measurement_type").ContainsKey("category") Then
+                insert.Category = ent("measurement_type")("category")
+            End If
+            If ent("measurement_type").ContainsKey("perm_link") Then
+                insert.PermLink = ent("measurement_type")("perm_link")
+            End If
+            'insert.Category = ent("measurement_type")("category")
+            insert.Frequency = ent("measurement_type")("frequency")
+            insert.Unit = ent("measurement_type")("unit")
+            insert.RelatedEntityTypeId = ent("measurement_type")("related_entity_type_id")
+            For Each row In ent("measurement_type")("measurements")
+                Dim insertm As New Measurement
+                insertm.Period = row("period")
+                insertm.Value = row("value")
+                insertm.RelatedEntityId = row("related_entity_id")
+                If row.ContainsKey("dimension") Then
+                    insertm.Dimension = row("dimension")
+                End If
+                insertm.MeasurementTypeId = insert.ID
+                If row.ContainsKey("created_by") Then
+                    insertm.CreatedBy = row("created_by")
+                End If
+
+                insertm.ID = row("id")
+                insert.measurements.Add(insertm)
+            Next
+            rtn.Add(insert)
+        Else
+            For Each row In ent("measurement_types")
+                Dim insert As New MeasurementType
+                insert.ID = row("id")
+                insert.Name = row("name")
+                insert.Description = row("description")
+                If row.ContainsKey("category") Then
+                    insert.Category = row("category")
+                End If
+                If row.ContainsKey("perm_link") Then
+                    insert.PermLink = row("perm_link")
+                End If
+
+                insert.Frequency = row("frequency")
+                insert.Unit = row("unit")
+
+                insert.RelatedEntityTypeId = row("related_entity_type_id")
+                For Each row2 In row("measurements")
+                    Dim insertm As New Measurement
+                    insertm.Period = row2("period")
+                    insertm.Value = row2("value")
+                    insertm.RelatedEntityId = row2("related_entity_id")
+                    If row2.ContainsKey("dimension") Then
+                        insertm.Dimension = row2("dimension")
+                    End If
+                    If row2.ContainsKey("created_by") Then
+                        insertm.CreatedBy = row2("created_by")
+                    End If
+                    insertm.MeasurementTypeId = insert.ID
+                    insertm.ID = row2("id")
+                    insert.measurements.Add(insertm)
+                Next
+                rtn.Add(insert)
+            Next
+
+
+        End If
+
+
+        Return rtn
+    End Function
 
 
     Public Function GetMeasurements(ByVal RelatedEntityId As String, ByVal PeriodFrom As String, ByVal PeriodTo As String, Optional ByVal MeasurementTypeId As String = "", Optional Category As String = "", Optional DefinitionOnly As Boolean = False, Optional filters As String = "") As List(Of MeasurementType)
@@ -518,7 +615,7 @@ Public Class GR
             Return
         End If
         If mt.measurements.Count <= BatchSize Then
-            AddMeasurementBatch(mt, BatchSize:=BatchSize, UseLMI:=UseLMI)
+            AddMeasurementBatch(mt, Page:=-1, BatchSize:=BatchSize, UseLMI:=UseLMI)
         Else
             For i As Integer = 0 To CInt(Math.Truncate(mt.measurements.Count / BatchSize))
                 If Not UseLMI Then
@@ -705,11 +802,11 @@ Public Class GR
 
     End Function
 
-    Public Function UpdateEntity(ByRef p As Entity, ByVal EntityName As String) As String
+    Public Function UpdateEntity(ByRef p As Entity, ByVal EntityName As String, Optional ByVal SkipEmptyArray As Boolean = True) As String
         If Not p.HasValues Then
             Return p.ID
         End If
-        Dim postData = "{""entity"": {""" & EntityName & """:" & p.ToJson & "}}"
+        Dim postData = "{""entity"": {""" & EntityName & """:" & p.ToJson(skip_empty_array:=SkipEmptyArray) & "}}"
         'Console.Write(postData & vbNewLine)
 
         Dim rest = _grUrl & "entities/" & p.ID & "/?access_token=" & _apikey.ToString
@@ -966,7 +1063,7 @@ Public Class GR
         If Not Role = "" Then
             r = ",""role"": """ & Role & """"
         End If
-        
+
         Dim cid As String = ""
         If Not ClientIntegrationId1 = "" Then
             cid = """client_integration_id"": """ & ClientIntegrationId1 & """, "
@@ -1779,12 +1876,14 @@ Public Class GR
 
     End Sub
 
-    Public Shared Function ValidateApiKey(ByVal gr_url As String, ByVal api_key As String) As Boolean
+    Public Shared Function ValidateApiKey(ByVal gr_url As String, ByVal api_key As String, Optional ByVal xff As String = "") As Boolean
         Dim rtn = False
         Try
             Dim web As New WebClient()
             web.Encoding = Encoding.UTF8
-           
+            If Not xff Is Nothing Then
+                web.Headers.Add("X-Forwarded-For", xff)
+            End If
             Dim json = web.DownloadString(gr_url & "systems?access_token=" & api_key.ToString)
             If Not String.IsNullOrEmpty(json) Then
                 rtn = True
