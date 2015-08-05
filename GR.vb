@@ -802,14 +802,54 @@ Public Class GR
 
     End Function
 
-    Public Function UpdateEntity(ByRef p As Entity, ByVal EntityName As String, Optional ByVal SkipEmptyArray As Boolean = True) As String
+    Public Function CreateEntityWithResponse(ByRef p As Entity, ByVal EntityName As String, Optional filters As String = "") As Entity
+        Dim postData = "{""entity"": {""" & EntityName & """:" & p.ToJson & "}}"
+        'Console.Write(postData & vbNewLine)
+        Dim rest = _grUrl & "entities?access_token=" & _apikey.ToString & filters
+
+
+
+
+        Dim response As HttpWebResponse
+
+        Dim request As HttpWebRequest = DirectCast(WebRequest.Create(rest), HttpWebRequest)
+        request.Proxy = Nothing
+        request.Method = "POST"
+        If Not _x_forwarded_for Is Nothing Then
+            request.Headers.Add("X-Forwarded-For", _x_forwarded_for)
+        End If
+        Dim bytes As Byte() = Text.Encoding.UTF8.GetBytes(postData)
+        request.ContentLength = bytes.Length
+        request.ContentType = "application/json"
+        Using requestStream = request.GetRequestStream()
+
+
+            requestStream.Write(bytes, 0, bytes.Length)
+
+            response = DirectCast(request.GetResponse(), HttpWebResponse)
+
+
+        End Using
+
+
+        Using reader As New IO.StreamReader(response.GetResponseStream())
+            Dim json = reader.ReadToEnd()
+            Dim newEntity = CreateEntityFromJsonResp(json)
+            Return newEntity
+        End Using
+
+
+
+    End Function
+
+    Public Function UpdateEntity(ByRef p As Entity, ByVal EntityName As String, Optional ByVal SkipEmptyArray As Boolean = True, Optional filters As String = "") As String
         If Not p.HasValues Then
             Return p.ID
         End If
         Dim postData = "{""entity"": {""" & EntityName & """:" & p.ToJson(skip_empty_array:=SkipEmptyArray) & "}}"
         'Console.Write(postData & vbNewLine)
 
-        Dim rest = _grUrl & "entities/" & p.ID & "/?access_token=" & _apikey.ToString
+        Dim rest = _grUrl & "entities/" & p.ID & "/?access_token=" & _apikey.ToString & filters
         Dim request As HttpWebRequest = DirectCast(WebRequest.Create(rest), HttpWebRequest)
         request.Proxy = Nothing
         request.Method = "PUT"
@@ -826,6 +866,8 @@ Public Class GR
                 Dim json = reader.ReadToEnd()
                 Trace.WriteLine("from-update:" & json)
                 Dim newEntity = CreateEntityFromJsonResp(json)
+
+
                 Return newEntity.ID
             End Using
         End Using
@@ -839,6 +881,47 @@ Public Class GR
 
         'ID's need to be writted back to entity structure
     End Function
+    Public Function UpdateEntityWithResponse(ByRef p As Entity, ByVal EntityName As String, Optional ByVal SkipEmptyArray As Boolean = True, Optional filters As String = "") As Entity
+        If Not p.HasValues Then
+            Return Nothing
+        End If
+        Dim postData = "{""entity"": {""" & EntityName & """:" & p.ToJson(skip_empty_array:=SkipEmptyArray) & "}}"
+        'Console.Write(postData & vbNewLine)
+
+        Dim rest = _grUrl & "entities/" & p.ID & "/?access_token=" & _apikey.ToString & filters
+        Dim request As HttpWebRequest = DirectCast(WebRequest.Create(rest), HttpWebRequest)
+        request.Proxy = Nothing
+        request.Method = "PUT"
+        If Not _x_forwarded_for Is Nothing Then
+            request.Headers.Add("X-Forwarded-For", _x_forwarded_for)
+        End If
+        Dim bytes As Byte() = Text.Encoding.UTF8.GetBytes(postData)
+        request.ContentLength = bytes.Length
+        request.ContentType = "application/json"
+        Using requestStream = request.GetRequestStream()
+            requestStream.Write(bytes, 0, bytes.Length)
+            Dim response As HttpWebResponse = DirectCast(request.GetResponse(), HttpWebResponse)
+            Using reader As New IO.StreamReader(response.GetResponseStream())
+                Dim json = reader.ReadToEnd()
+                Trace.WriteLine("from-update:" & json)
+                Dim newEntity = CreateEntityFromJsonResp(json)
+
+
+                Return newEntity
+            End Using
+        End Using
+
+
+
+
+        Return Nothing
+
+
+
+        'ID's need to be writted back to entity structure
+    End Function
+
+
 
     Public Sub DeleteEntity(ByVal ID As String)
         Dim rest = _grUrl & "entities/" & ID & "?access_token=" & _apikey.ToString
