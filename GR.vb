@@ -187,6 +187,24 @@ Public Class GR
     End Sub
 
 
+    Public Sub DeleteMeasuermentType(ByVal MeasurementTypeId As String)
+        Dim rest = _grUrl & "measurement_types/" & MeasurementTypeId & "?access_token=" & _apikey.ToString
+        Dim response As HttpWebResponse
+        Dim request As HttpWebRequest = DirectCast(WebRequest.Create(rest), HttpWebRequest)
+        request.Proxy = Nothing
+        request.Method = "DELETE"
+        If Not _x_forwarded_for Is Nothing Then
+            request.Headers.Add("X-Forwarded-For", _x_forwarded_for)
+        End If
+        response = DirectCast(request.GetResponse(), HttpWebResponse)
+
+
+        request.Abort()
+        request = Nothing
+    End Sub
+
+
+
     Public Async Function GetMeasurementsAsync(ByVal RelatedEntityId As String, ByVal PeriodFrom As String, ByVal PeriodTo As String, Optional ByVal MeasurementTypeId As String = "", Optional Category As String = "", Optional DefinitionOnly As Boolean = False, Optional filters As String = "") As Task(Of List(Of MeasurementType))
 
         ' Dim web As New WebClient()
@@ -996,7 +1014,7 @@ Public Class GR
         Return False
     End Function
 
-    Public Function GetEntities(ByVal EntityType As String, ByVal Filters As String, Optional ByVal Page As Integer = 1, Optional ByVal PerPage As Integer = 100, Optional ByRef TotalPage As Integer = 1, Optional GetAllPages As Boolean = True) As List(Of Entity)
+    Public Function GetEntities(ByVal EntityType As String, ByVal Filters As String, Optional ByVal Page As Integer = 1, Optional ByVal PerPage As Integer = 99, Optional ByRef TotalPage As Integer = 1, Optional GetAllPages As Boolean = True) As List(Of Entity)
         Dim web As New WebClient()
         web.Encoding = Encoding.UTF8
 
@@ -1036,7 +1054,7 @@ Public Class GR
         Dim rtn As New List(Of Entity)
         Dim has_next = True
         Dim Page As Integer = 1
-        Dim PerPage As Integer = 100
+        Dim PerPage As Integer = 99
         While has_next
 
             Dim url = _grUrl & "entities?access_token=" & _apikey.ToString & "&entity_type=" & EntityType & Filters & "&page=" & Page & "&per_page=" & PerPage
