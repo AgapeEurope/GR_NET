@@ -1224,9 +1224,19 @@ Public Class GR
 
             requestStream.Write(bytes, 0, bytes.Length)
 
+            Dim response As HttpWebResponse            
 
+            Try
+                response = DirectCast(request.GetResponse(), HttpWebResponse)
+            Catch ex As System.Net.WebException
+                response = DirectCast(ex.Response, HttpWebResponse)
 
-            Dim response As HttpWebResponse = DirectCast(request.GetResponse(), HttpWebResponse)
+                Using reader As New IO.StreamReader(response.GetResponseStream())
+                    Dim responseMsg = reader.ReadToEnd()
+                    Throw New System.Net.WebException("Server returned status code " & response.StatusCode & ", with message: " & responseMsg)
+                End Using
+            End Try
+
 
             Using reader As New IO.StreamReader(response.GetResponseStream())
 
@@ -1238,7 +1248,7 @@ Public Class GR
             End Using
 
         End Using
-        Return New Entity
+                Return New Entity
     End Function
 
     Public Function RelateEntity(ByVal EntityType1 As String, ByVal Id1 As String, ByVal EntityType2 As String, ByVal Id2 As String, ByVal RelationshipType As String, Optional Role As String = "", Optional ClientIntegrationId1 As String = "", Optional Client_Integration_Id2 As String = "", Optional rel_ent_props As Dictionary(Of String, String) = Nothing) As Entity
